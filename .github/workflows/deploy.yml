@@ -11,13 +11,6 @@ jobs:
   build-and-deploy:
     name: 🚀 Build, Test & Deploy charts.fluidpalette.com
     runs-on: ubuntu-latest
-    env:
-      HOSTINGER_FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER }}
-      HOSTINGER_FTP_USERNAME: ${{ secrets.HOSTINGER_FTP_USERNAME }}
-      HOSTINGER_FTP_PASSWORD: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
-      HOSTINGER_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
-      HOSTINGER_SSH_USER: ${{ secrets.HOSTINGER_SSH_USER }}
-      HOSTINGER_SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
 
     steps:
       - name: 📥 Checkout Repository
@@ -49,24 +42,24 @@ jobs:
           cp deploy/nginx-charts.fluidpalette.com.conf deploy/HOSTINGER_DEPLOYMENT_GUIDE.md dist/charts-dist/deploy/
 
       - name: 🚀 Deploy to Hostinger via FTPS (Subdomain charts.fluidpalette.com)
-        if: ${{ github.event_name == 'push' && env.HOSTINGER_FTP_SERVER != '' && env.HOSTINGER_FTP_USERNAME != '' }}
+        if: ${{ github.event_name == 'push' && secrets['HOSTINGER_FTP_SERVER'] != '' && secrets['HOSTINGER_FTP_USERNAME'] != '' }}
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ env.HOSTINGER_FTP_SERVER }}
-          username: ${{ env.HOSTINGER_FTP_USERNAME }}
-          password: ${{ env.HOSTINGER_FTP_PASSWORD }}
+          server: ${{ secrets['HOSTINGER_FTP_SERVER'] }}
+          username: ${{ secrets['HOSTINGER_FTP_USERNAME'] }}
+          password: ${{ secrets['HOSTINGER_FTP_PASSWORD'] }}
           local-dir: ./dist/charts-dist/
           server-dir: ./charts/
           protocol: ftps
           dangerous-clean-slate: false
 
       - name: 🚀 Deploy to Hostinger VPS via SSH (Alternative)
-        if: ${{ github.event_name == 'push' && env.HOSTINGER_SSH_HOST != '' && env.HOSTINGER_SSH_USER != '' }}
+        if: ${{ github.event_name == 'push' && secrets['HOSTINGER_SSH_HOST'] != '' && secrets['HOSTINGER_SSH_USER'] != '' }}
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ env.HOSTINGER_SSH_HOST }}
-          username: ${{ env.HOSTINGER_SSH_USER }}
-          key: ${{ env.HOSTINGER_SSH_KEY }}
+          host: ${{ secrets['HOSTINGER_SSH_HOST'] }}
+          username: ${{ secrets['HOSTINGER_SSH_USER'] }}
+          key: ${{ secrets['HOSTINGER_SSH_KEY'] }}
           script: |
             cd /var/www/charts || exit 1
             git pull origin main
@@ -80,4 +73,3 @@ jobs:
         run: |
           echo "Verifying live endpoint response for https://charts.fluidpalette.com..."
           curl -s -o /dev/null -w "%{http_code}" https://charts.fluidpalette.com || echo "Endpoint check finished."
-
