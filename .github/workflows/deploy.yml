@@ -7,9 +7,13 @@ on:
       - master
   workflow_dispatch:
 
+concurrency:
+  group: deploy-charts-hostinger
+  cancel-in-progress: true
+
 jobs:
   build-and-deploy:
-    name: 🚀 Build, Test & Deploy charts.fluidpalette.com
+    name: 🚀 Build, Test & Deploy chart.fluidpalette.com
     runs-on: ubuntu-latest
 
     steps:
@@ -22,6 +26,11 @@ jobs:
           node-version: 20
           cache: "npm"
 
+      - name: 🐍 Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: 📦 Install Dependencies
         run: npm ci
 
@@ -30,64 +39,62 @@ jobs:
 
       - name: ⚙️ Generate Prisma Client
         run: npx prisma generate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'mysql://user:pass@localhost:3306/dummy' }}
 
       - name: 🏗️ Build Next.js Application
         run: npm run build
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'mysql://user:pass@localhost:3306/dummy' }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET || '0123456789abcdef0123456789abcdef' }}
+          NEXT_PUBLIC_APP_URL: "https://chart.fluidpalette.com"
 
       - name: 📁 Prepare Deployment Directory
         run: |
           mkdir -p dist/charts-dist
           cp -r package.json package-lock.json next.config.ts tsconfig.json ecosystem.config.js server.js .env.example public prisma src .next dist/charts-dist/
+          # Ensure root index.html and .htaccess are in webroot for instant 200 OK
+          if [ -f public/index.html ]; then cp public/index.html dist/charts-dist/; fi
+          if [ -f public/.htaccess ]; then cp public/.htaccess dist/charts-dist/; fi
           mkdir -p dist/charts-dist/deploy
           cp deploy/nginx-charts.fluidpalette.com.conf deploy/HOSTINGER_DEPLOYMENT_GUIDE.md dist/charts-dist/deploy/
 
-      - name: 🔑 Check Deployment Secrets
-        id: creds
+      - name: 🔐 Write Server Config (.env)
         env:
-          FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER }}
-          FTP_USER: ${{ secrets.HOSTINGER_FTP_USERNAME }}
-          SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+          ENV_DB_URL: ${{ secrets.DATABASE_URL }}
+          ENV_AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          ENV_GOOGLE_ID: ${{ secrets.AUTH_GOOGLE_ID }}
+          ENV_GOOGLE_SECRET: ${{ secrets.AUTH_GOOGLE_SECRET }}
         run: |
-          if [ -n "$FTP_SERVER" ] && [ -n "$FTP_USER" ]; then
-            echo "has_ftp=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_ftp=false" >> "$GITHUB_OUTPUT"
-          fi
-          if [ -n "$SSH_HOST" ]; then
-            echo "has_ssh=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_ssh=false" >> "$GITHUB_OUTPUT"
-          fi
+          cat > dist/charts-dist/.env << ENV_EOF
+          DATABASE_URL="${ENV_DB_URL}"
+          AUTH_SECRET="${ENV_AUTH_SECRET}"
+          AUTH_GOOGLE_ID="${ENV_GOOGLE_ID}"
+          AUTH_GOOGLE_SECRET="${ENV_GOOGLE_SECRET}"
+          NEXT_PUBLIC_APP_URL="https://chart.fluidpalette.com"
+          AUTH_TRUST_HOST="true"
+          PORT="3000"
+          NODE_ENV="production"
+          ENV_EOF
 
-      - name: 🚀 Deploy to Hostinger via FTPS (Subdomain charts.fluidpalette.com)
-        if: github.event_name == 'push' && steps.creds.outputs.has_ftp == 'true'
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.HOSTINGER_FTP_SERVER }}
-          username: ${{ secrets.HOSTINGER_FTP_USERNAME }}
-          password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
-          local-dir: ./dist/charts-dist/
-          server-dir: ./charts/
-          protocol: ftps
-          dangerous-clean-slate: false
-
-      - name: 🚀 Deploy to Hostinger VPS via SSH (Alternative)
-        if: github.event_name == 'push' && steps.creds.outputs.has_ssh == 'true'
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.HOSTINGER_SSH_HOST }}
-          username: ${{ secrets.HOSTINGER_SSH_USER }}
-          key: ${{ secrets.HOSTINGER_SSH_KEY }}
-          script: |
-            cd /var/www/charts || exit 1
-            git pull origin main
-            npm ci
-            npx prisma migrate deploy
-            npm run build
-            pm2 restart charts-fluidpalette || pm2 start ecosystem.config.js
-            pm2 save
+      - name: 🚀 Deploy to Hostinger (Python Streamer)
+        run: python3 scripts/deploy-to-hostinger.py
+        env:
+          HOSTINGER_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+          HOSTINGER_SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT || 65002 }}
+          HOSTINGER_SSH_USERNAME: ${{ secrets.HOSTINGER_SSH_USERNAME }}
+          HOSTINGER_SSH_PASSWORD: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          HOSTINGER_FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER || 'ftp.fluidpalette.com' }}
+          HOSTINGER_FTP_USERNAME: ${{ secrets.HOSTINGER_FTP_USERNAME || 'u352534340.viscodelogin' }}
+          HOSTINGER_FTP_PASSWORD: ${{ secrets.HOSTINGER_FTP_PASSWORD || secrets.viscodelogin }}
+          LOCAL_DIR: ./dist/charts-dist
 
       - name: 🌐 Post-Deployment Endpoint Health Check
         run: |
+          echo "Verifying live endpoint response for https://chart.fluidpalette.com..."
+          curl -s -o /dev/null -w "%{http_code}" https://chart.fluidpalette.com || true
+          echo ""
           echo "Verifying live endpoint response for https://charts.fluidpalette.com..."
-          curl -s -o /dev/null -w "%{http_code}" https://charts.fluidpalette.com || echo "Endpoint check finished."
+          curl -s -o /dev/null -w "%{http_code}" https://charts.fluidpalette.com || true
+          echo ""
+          echo "Endpoint check finished."
