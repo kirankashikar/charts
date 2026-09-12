@@ -171,3 +171,4 @@ NODE_ENV="production"
 3. **Database connection**: Create a test chart in the wizard and verify it saves.
 4. **Export verification**: Test PNG export (`/api/charts/[id]/image`) to verify `sharp` native library works on the host.
 5. **Viewer links**: Test shareable link `/c/[id]` in an incognito window.
+

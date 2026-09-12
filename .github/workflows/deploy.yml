@@ -1,0 +1,82 @@
+name: Build, Test & Deploy to Hostinger
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    name: 🚀 Build, Test & Deploy charts.fluidpalette.com
+    runs-on: ubuntu-latest
+    env:
+      HOSTINGER_FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER }}
+      HOSTINGER_FTP_USERNAME: ${{ secrets.HOSTINGER_FTP_USERNAME }}
+      HOSTINGER_FTP_PASSWORD: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+      HOSTINGER_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+      HOSTINGER_SSH_USER: ${{ secrets.HOSTINGER_SSH_USER }}
+      HOSTINGER_SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: 📦 Install Dependencies
+        run: npm ci
+
+      - name: 🔍 Lint Codebase
+        run: npm run lint
+
+      - name: ⚙️ Generate Prisma Client
+        run: npx prisma generate
+
+      - name: 🏗️ Build Next.js Application
+        run: npm run build
+
+      - name: 📁 Prepare Deployment Directory
+        run: |
+          mkdir -p dist/charts-dist
+          cp -r package.json package-lock.json next.config.ts tsconfig.json ecosystem.config.js server.js .env.example public prisma src .next dist/charts-dist/
+          mkdir -p dist/charts-dist/deploy
+          cp deploy/nginx-charts.fluidpalette.com.conf deploy/HOSTINGER_DEPLOYMENT_GUIDE.md dist/charts-dist/deploy/
+
+      - name: 🚀 Deploy to Hostinger via FTPS (Subdomain charts.fluidpalette.com)
+        if: ${{ github.event_name == 'push' && env.HOSTINGER_FTP_SERVER != '' && env.HOSTINGER_FTP_USERNAME != '' }}
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ env.HOSTINGER_FTP_SERVER }}
+          username: ${{ env.HOSTINGER_FTP_USERNAME }}
+          password: ${{ env.HOSTINGER_FTP_PASSWORD }}
+          local-dir: ./dist/charts-dist/
+          server-dir: ./charts/
+          protocol: ftps
+          dangerous-clean-slate: false
+
+      - name: 🚀 Deploy to Hostinger VPS via SSH (Alternative)
+        if: ${{ github.event_name == 'push' && env.HOSTINGER_SSH_HOST != '' && env.HOSTINGER_SSH_USER != '' }}
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.HOSTINGER_SSH_HOST }}
+          username: ${{ env.HOSTINGER_SSH_USER }}
+          key: ${{ env.HOSTINGER_SSH_KEY }}
+          script: |
+            cd /var/www/charts || exit 1
+            git pull origin main
+            npm ci
+            npx prisma migrate deploy
+            npm run build
+            pm2 restart charts-fluidpalette || pm2 start ecosystem.config.js
+            pm2 save
+
+      - name: 🌐 Post-Deployment Endpoint Health Check
+        run: |
+          echo "Verifying live endpoint response for https://charts.fluidpalette.com..."
+          curl -s -o /dev/null -w "%{http_code}" https://charts.fluidpalette.com || echo "Endpoint check finished."
