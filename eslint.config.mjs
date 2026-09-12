@@ -15,6 +15,10 @@ const eslintConfig = defineConfig([
     "server.js",
     "ecosystem.config.js",
     "deploy/**",
+    "dist/**",
+    "scripts/**",
+    "public/**",
+    ".github/**",
     // The Claude Design handoff: the original prototype and its vendored
     // runtime, kept for reference rather than built.
     "design-handoff/**",

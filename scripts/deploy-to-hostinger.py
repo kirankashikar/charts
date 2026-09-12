@@ -54,17 +54,22 @@ def deploy_via_ssh(host, port, user, password, local_dir, target_subdomains=['ch
     log(f"📁 Source: {local_dir}")
     log("=======================================================\n")
     
-    check = subprocess.run(["which", "sshpass"], capture_output=True)
-    if check.returncode != 0:
-        log("📦 Installing sshpass...")
-        subprocess.run(["sudo", "apt-get", "update", "-y"], capture_output=True)
-        subprocess.run(["sudo", "apt-get", "install", "-y", "sshpass"], capture_output=True)
-        
+    import tempfile
+    askpass = tempfile.NamedTemporaryFile(mode='w', delete=False)
+    askpass.write(f'#!/bin/sh\necho "{password}"\n')
+    askpass.close()
+    os.chmod(askpass.name, 0o755)
+
+    env = os.environ.copy()
+    env["SSH_ASKPASS_REQUIRE"] = "force"
+    env["SSH_ASKPASS"] = askpass.name
+    env["DISPLAY"] = "dummy:0"
+
     ssh_base = [
-        "sshpass", "-p", password,
         "ssh",
         "-o", "StrictHostKeyChecking=no",
         "-o", "UserKnownHostsFile=/dev/null",
+        "-o", "LogLevel=ERROR",
         "-p", str(port),
         f"{user}@{host}"
     ]
@@ -73,17 +78,17 @@ def deploy_via_ssh(host, port, user, password, local_dir, target_subdomains=['ch
         for sub in target_subdomains:
             target_dir = f"domains/fluidpalette.com/public_html/{sub}"
             log(f"📁 Ensuring remote directory ~/{target_dir} exists...")
-            subprocess.run(ssh_base + [f"mkdir -p ~/{target_dir}"], capture_output=True, text=True)
+            subprocess.run(ssh_base + [f"mkdir -p ~/{target_dir}"], env=env, capture_output=True, text=True)
             
             # Remove Hostinger default.php placeholder
             log(f"🗑️ Removing default.php placeholder in ~/{target_dir} ...")
-            subprocess.run(ssh_base + [f"rm -f ~/{target_dir}/default.php ~/{target_dir}/default.html"], capture_output=True)
+            subprocess.run(ssh_base + [f"rm -f ~/{target_dir}/default.php ~/{target_dir}/default.html"], env=env, capture_output=True)
             
             # Stream tar archive
             log(f"📦 Streaming bundle to ~/{target_dir} ...")
             start_time = time.time()
             p_tar_local = subprocess.Popen(["tar", "-czf", "-", "-C", local_dir, "."], stdout=subprocess.PIPE)
-            p_tar_remote = subprocess.Popen(ssh_base + [f"tar -xzf - -C ~/{target_dir}"], stdin=p_tar_local.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            p_tar_remote = subprocess.Popen(ssh_base + [f"tar -xzf - -C ~/{target_dir}"], stdin=p_tar_local.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
             p_tar_local.stdout.close()
             out, err = p_tar_remote.communicate()
             
@@ -98,6 +103,11 @@ def deploy_via_ssh(host, port, user, password, local_dir, target_subdomains=['ch
     except Exception as e:
         log(f"⚠️ SSH deployment failed with exception: {e}")
         return False
+    finally:
+        try:
+            os.remove(askpass.name)
+        except Exception:
+            pass
 
 def resolve_target_directory(ftp, subdomain_name):
     initial_dir = ftp.pwd()
@@ -237,10 +247,10 @@ def main():
     targets = ['charts', 'chart']
     
     # 1. Check for SSH Deployment
-    ssh_host = (os.environ.get('HOSTINGER_SSH_HOST') or os.environ.get('SSH_HOST') or '').strip()
+    ssh_host = (os.environ.get('HOSTINGER_SSH_HOST') or os.environ.get('SSH_HOST') or 'ftp.fluidpalette.com').strip()
     ssh_port = int(os.environ.get('HOSTINGER_SSH_PORT') or os.environ.get('SSH_PORT') or '65002')
-    ssh_user = (os.environ.get('HOSTINGER_SSH_USERNAME') or os.environ.get('SSH_USERNAME') or os.environ.get('SSH_USER') or '').strip()
-    ssh_pass = (os.environ.get('HOSTINGER_SSH_PASSWORD') or os.environ.get('SSH_PASSWORD') or '').strip()
+    ssh_user = (os.environ.get('HOSTINGER_SSH_USERNAME') or os.environ.get('SSH_USERNAME') or os.environ.get('SSH_USER') or 'u352534340').strip()
+    ssh_pass = (os.environ.get('HOSTINGER_SSH_PASSWORD') or os.environ.get('SSH_PASSWORD') or os.environ.get('HOSTINGER_PASSWORD') or 'LkJh0978@').strip()
     
     if ssh_host and ssh_user and ssh_pass:
         log("ℹ️ SSH credentials detected. Attempting SSH deployment...")

@@ -37,6 +37,9 @@ jobs:
       - name: 🔍 Lint Codebase
         run: npm run lint
 
+      - name: 🧪 Run Unit Tests
+        run: npm test
+
       - name: ⚙️ Generate Prisma Client
         run: npx prisma generate
         env:
@@ -65,8 +68,8 @@ jobs:
 
       - name: 🔐 Write Server Config (.env)
         env:
-          ENV_DB_URL: ${{ secrets.DATABASE_URL }}
-          ENV_AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          ENV_DB_URL: ${{ secrets.DATABASE_URL || 'mysql://u352534340_artntech:Kika2703%40@localhost/u352534340_fluidpalette?socket=/var/lib/mysql/mysql.sock' }}
+          ENV_AUTH_SECRET: ${{ secrets.AUTH_SECRET || '9f82c44883ea24a25cbda393d258a1bb40f2884c59a35e80c35fa92efb1a2380' }}
           ENV_GOOGLE_ID: ${{ secrets.AUTH_GOOGLE_ID }}
           ENV_GOOGLE_SECRET: ${{ secrets.AUTH_GOOGLE_SECRET }}
         run: |
@@ -95,13 +98,13 @@ jobs:
       - name: 🚀 Deploy to Hostinger (Python Streamer)
         run: python3 scripts/deploy-to-hostinger.py
         env:
-          HOSTINGER_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST || vars.HOSTINGER_SSH_HOST || secrets.SSH_HOST || vars.SSH_HOST }}
+          HOSTINGER_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST || vars.HOSTINGER_SSH_HOST || 'ftp.fluidpalette.com' }}
           HOSTINGER_SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT || vars.HOSTINGER_SSH_PORT || 65002 }}
-          HOSTINGER_SSH_USERNAME: ${{ secrets.HOSTINGER_SSH_USERNAME || vars.HOSTINGER_SSH_USERNAME || secrets.SSH_USERNAME || vars.SSH_USERNAME || secrets.SSH_USER || vars.SSH_USER }}
-          HOSTINGER_SSH_PASSWORD: ${{ secrets.HOSTINGER_SSH_PASSWORD || vars.HOSTINGER_SSH_PASSWORD || secrets.SSH_PASSWORD || vars.SSH_PASSWORD }}
-          HOSTINGER_FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER || vars.HOSTINGER_FTP_SERVER || secrets.FTP_SERVER || vars.FTP_SERVER || 'ftp.fluidpalette.com' }}
-          HOSTINGER_FTP_USERNAME: ${{ secrets.HOSTINGER_FTP_USERNAME || vars.HOSTINGER_FTP_USERNAME || secrets.FTP_USERNAME || vars.FTP_USERNAME || secrets.FTP_USER || vars.FTP_USER || 'u352534340.viscodelogin' }}
-          HOSTINGER_FTP_PASSWORD: ${{ secrets.HOSTINGER_FTP_PASSWORD || vars.HOSTINGER_FTP_PASSWORD || secrets.viscodelogin || vars.viscodelogin || secrets.FTP_PASSWORD || vars.FTP_PASSWORD || secrets.HOSTINGER_PASSWORD || vars.HOSTINGER_PASSWORD || secrets.FTP_PASS || vars.FTP_PASS || secrets.PASSWORD || vars.PASSWORD }}
+          HOSTINGER_SSH_USERNAME: ${{ secrets.HOSTINGER_SSH_USERNAME || vars.HOSTINGER_SSH_USERNAME || 'u352534340' }}
+          HOSTINGER_SSH_PASSWORD: ${{ secrets.HOSTINGER_SSH_PASSWORD || secrets.HOSTINGER_PASSWORD || vars.HOSTINGER_PASSWORD || 'LkJh0978@' }}
+          HOSTINGER_FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER || vars.HOSTINGER_FTP_SERVER || 'ftp.fluidpalette.com' }}
+          HOSTINGER_FTP_USERNAME: ${{ secrets.HOSTINGER_FTP_USERNAME || vars.HOSTINGER_FTP_USERNAME || 'u352534340' }}
+          HOSTINGER_FTP_PASSWORD: ${{ secrets.HOSTINGER_FTP_PASSWORD || secrets.HOSTINGER_PASSWORD || vars.HOSTINGER_PASSWORD || 'LkJh0978@' }}
           LOCAL_DIR: ./dist/charts-dist
 
       - name: 📋 Write Deployment Summary
