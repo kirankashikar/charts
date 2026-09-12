@@ -80,3 +80,4 @@ jobs:
         run: |
           echo "Verifying live endpoint response for https://charts.fluidpalette.com..."
           curl -s -o /dev/null -w "%{http_code}" https://charts.fluidpalette.com || echo "Endpoint check finished."
+
