@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  charts        Chart[]
+  createdAt     DateTime  @default(now())
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  // OAuth tokens overflow MySQL's default varchar(191), so they take TEXT.
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+enum Access {
+  LINK
+  WORKSPACE
+  PRIVATE
+}
+
+model Chart {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String   @default("Untitled chart")
+  chartType String   @default("sankey")
+  shell     String   @default("split")
+  /// Which renderer draws this chart: builtin | echarts | plotly | d3
+  engine    String   @default("builtin")
+
+  /// { flows: { name, cols[], types[], rows[][] }, segments: { ... } }
+  sheets    Json
+  /// { flow: { s, t, v }, matrix: { label, measures[] } }
+  mapping   Json
+  /// { title, subtitle, palette, customColors[], fillAlpha, ground, labels, values, sortDesc }
+  style     Json
+
+  access    Access   @default(LINK)
+  embed     String   @default("viewer")
+
+  version   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  versions  ChartVersion[]
+
+  @@index([userId, updatedAt])
+}
+
+/// An immutable snapshot written on every publish. The viewer URL a slide links
+/// to reads these, so re-editing a chart never changes a deck mid-presentation
+/// until the author publishes again.
+model ChartVersion {
+  id        String   @id @default(cuid())
+  chartId   String
+  chart     Chart    @relation(fields: [chartId], references: [id], onDelete: Cascade)
+  version   Int
+  /// Full render payload: { name, chartType, sheets, mapping, style }
+  snapshot  Json
+  createdAt DateTime @default(now())
+
+  @@unique([chartId, version])
+  @@index([chartId, createdAt])
+}

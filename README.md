@@ -1,25 +1,60 @@
-# CODING AGENTS: READ THIS FIRST
+# Graphos — Chart Studio
 
-This is a **handoff bundle** from Claude Design (claude.ai/design).
+A wizard for turning a spreadsheet into an advanced chart, publishing it at a stable URL, and hyperlinking that URL from a PowerPoint slide — no add-ins and no local server in the room.
 
-A user mocked up designs in HTML/CSS/JS using an AI design tool, then exported this bundle so a coding agent can implement the designs for real.
+Implemented from the Claude Design handoff in [`design-handoff/`](design-handoff/) (the original prototype, its chat transcript and the Modernist design system it was built on).
 
-## What you should do — IMPORTANT
+## What's here
 
-**Read the chat transcripts first.** There are 1 chat transcript(s) in `chats/`. The transcripts show the full back-and-forth between the user and the design assistant — they tell you **what the user actually wants** and **where they landed** after iterating. Don't skip them. The final HTML files are the output, but the chat is where the intent lives.
+| Route | What it does |
+| --- | --- |
+| `/` | Sign in with Google (the only auth path; redirects to the dashboard when signed in) |
+| `/dashboard` | Your charts, with a thumbnail drawn from each chart's real data |
+| `/wizard/[id]` | The five-step wizard: Data → Chart → Map → Style → Publish, with a live preview that redraws on every keystroke |
+| `/c/[id]` | The public viewer a slide links to. Honours the chart's access setting; `?v=N` pins a version, `?embed=1` strips the chrome for an iframe |
+| `/api/charts/[id]/image` | The chart rasterized to PNG (`?download=1` to save it for the slide) |
 
-**Read `project/Chart Studio.dc.html` in full.** The user had this file open when they triggered the handoff, so it's almost certainly the primary design they want built. Read it top to bottom — don't skim. Then **follow its imports**: open every file it pulls in (shared components, CSS, scripts) so you understand how the pieces fit together before you start implementing.
+### Charts
 
-**If anything is ambiguous, ask the user to confirm before you start implementing.** It's much cheaper to clarify scope up front than to build the wrong thing.
+Nine types render from the flow sheet or the segment matrix: sankey, sunburst, treemap, circle packing, chord, network, parallel coordinates, Marimekko and radar. Violin and the two map types show what they'd need instead of a broken frame — they want observation-level rows and geographic columns the sheets don't carry yet.
 
-## About the design files
+### Render engines
 
-The design medium is **HTML/CSS/JS** — these are prototypes, not production code. Your job is to **recreate them pixel-perfectly** in whatever technology makes sense for the target codebase (React, Vue, native, whatever fits). Match the visual output; don't copy the prototype's internal structure unless it happens to fit.
+Every chart picks its own renderer on the Style step:
 
-**Don't render these files in a browser or take screenshots unless the user asks you to.** Everything you need — dimensions, colors, layout rules — is spelled out in the source. Read the HTML and CSS directly; a screenshot won't tell you anything they don't.
+- **Graphos** — the built-in SVG renderer, covers every type and is what the published PNG still is exported from
+- **Apache ECharts** — sankey, sunburst, treemap, network, chord, parallel, radar
+- **Plotly.js** — sankey, sunburst, treemap, parallel, radar
+- **D3** — sankey, sunburst, treemap, circle packing, chord, network
 
-## Bundle contents
+Library engines load on demand and fall back to the built-in renderer for anything they can't draw, so a chart never renders empty.
 
-- `README.md` — this file
-- `chats/` — conversation transcripts (read these!)
-- `project/` — the `Chart Studio design system` project files (HTML prototypes, assets, components)
+### Publishing
+
+Publishing writes an immutable `ChartVersion` snapshot. The viewer URL always serves the newest published version, so editing a chart never changes a deck mid-presentation until you publish again. Access is per chart: anyone with the link, anyone in your email domain, or only you.
+
+## Setup
+
+```bash
+npm install
+cp .env.example .env        # fill in DATABASE_URL, AUTH_SECRET, Google client id/secret
+npx prisma migrate dev      # or: npm run db:push against an existing database
+npm run dev
+```
+
+Google OAuth needs `https://<your-domain>/api/auth/callback/google` registered as an authorized redirect URI (and `http://localhost:3000/api/auth/callback/google` for local work).
+
+## Deploying
+
+```bash
+npm ci
+npm run db:migrate          # applies migrations to DATABASE_URL
+npm run build
+npm start                   # serves on PORT, default 3000
+```
+
+Self-hosting behind a reverse proxy needs `AUTH_TRUST_HOST=true` and `NEXT_PUBLIC_APP_URL` set to the public origin, so published links are generated against the real domain. Node 20.9+ is required. PNG export uses `sharp`, which needs the platform's prebuilt binary — install dependencies on the target platform rather than copying `node_modules` across architectures.
+
+## Stack
+
+Next.js 16 (App Router) · React 19 · Auth.js v5 with the Google provider · Prisma 6 + MySQL/MariaDB · sharp for PNG export · ECharts / Plotly / D3 as optional render engines.
