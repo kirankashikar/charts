@@ -82,11 +82,15 @@ jobs:
           ENV_EOF
 
       - name: 🔍 Diagnose Deployment Credentials
+        env:
+          FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER || vars.HOSTINGER_FTP_SERVER || 'ftp.fluidpalette.com' }}
+          FTP_USERNAME: ${{ secrets.HOSTINGER_FTP_USERNAME || vars.HOSTINGER_FTP_USERNAME || 'u352534340.viscodelogin' }}
+          FTP_PASSWORD_SET: ${{ (secrets.HOSTINGER_FTP_PASSWORD != '' || vars.HOSTINGER_FTP_PASSWORD != '' || secrets.viscodelogin != '' || vars.viscodelogin != '' || secrets.FTP_PASSWORD != '' || vars.FTP_PASSWORD != '') && '✅ Detected in GitHub environment' || '❌ NOT DETECTED (empty in secrets & vars)' }}
         run: |
           echo "Checking available deployment credentials:"
-          echo "FTP Server:   ${{ secrets.HOSTINGER_FTP_SERVER || vars.HOSTINGER_FTP_SERVER || 'ftp.fluidpalette.com' }}"
-          echo "FTP Username: ${{ secrets.HOSTINGER_FTP_USERNAME || vars.HOSTINGER_FTP_USERNAME || 'u352534340.viscodelogin' }}"
-          echo "FTP Password: ${{ (secrets.HOSTINGER_FTP_PASSWORD != '' || vars.HOSTINGER_FTP_PASSWORD != '' || secrets.viscodelogin != '' || vars.viscodelogin != '' || secrets.FTP_PASSWORD != '' || vars.FTP_PASSWORD != '') && '✅ Detected in GitHub environment' || '❌ NOT DETECTED (empty in secrets & vars)' }}"
+          echo "FTP Server:   $FTP_SERVER"
+          echo "FTP Username: $FTP_USERNAME"
+          echo "FTP Password: $FTP_PASSWORD_SET"
 
       - name: 🚀 Deploy to Hostinger (Python Streamer)
         run: python3 scripts/deploy-to-hostinger.py
