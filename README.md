@@ -55,6 +55,17 @@ npm start                   # serves on PORT, default 3000
 
 Self-hosting behind a reverse proxy needs `AUTH_TRUST_HOST=true` and `NEXT_PUBLIC_APP_URL` set to the public origin, so published links are generated against the real domain. Node 20.9+ is required. PNG export uses `sharp`, which needs the platform's prebuilt binary — install dependencies on the target platform rather than copying `node_modules` across architectures.
 
+### Hostinger (charts.fluidpalette.com)
+
+The app is a long-running Node server, so it needs a **VPS or a Node.js hosting plan** — Hostinger's PHP shared hosting can't run it.
+
+1. **Database** — hPanel → Databases → MySQL: create `chartstudio` and a user, then set `DATABASE_URL="mysql://user:password@localhost:3306/chartstudio"`.
+2. **DNS** — an `A` record for `charts` on `fluidpalette.com` pointing at the server's IP.
+3. **Google OAuth** — add `https://charts.fluidpalette.com/api/auth/callback/google` as an authorized redirect URI on the OAuth client.
+4. **Environment** — on the server, `.env` with `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_TRUST_HOST=true`, and `NEXT_PUBLIC_APP_URL=https://charts.fluidpalette.com`.
+5. **Run it** — `npm ci && npm run db:migrate && npm run build`, then keep `npm start` alive with pm2 or a systemd unit.
+6. **Proxy and TLS** — Nginx `proxy_pass http://127.0.0.1:3000` for the subdomain, forwarding `Host` and `X-Forwarded-Proto`, with a Let's Encrypt certificate. Auth.js rejects OAuth callbacks over plain HTTP, so TLS is required before sign-in works.
+
 ## Stack
 
 Next.js 16 (App Router) · React 19 · Auth.js v5 with the Google provider · Prisma 6 + MySQL/MariaDB · sharp for PNG export · ECharts / Plotly / D3 as optional render engines.
