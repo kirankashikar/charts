@@ -41,25 +41,43 @@ jobs:
           mkdir -p dist/charts-dist/deploy
           cp deploy/nginx-charts.fluidpalette.com.conf deploy/HOSTINGER_DEPLOYMENT_GUIDE.md dist/charts-dist/deploy/
 
+      - name: 🔑 Check Deployment Secrets
+        id: creds
+        env:
+          FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER }}
+          FTP_USER: ${{ secrets.HOSTINGER_FTP_USERNAME }}
+          SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+        run: |
+          if [ -n "$FTP_SERVER" ] && [ -n "$FTP_USER" ]; then
+            echo "has_ftp=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_ftp=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -n "$SSH_HOST" ]; then
+            echo "has_ssh=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_ssh=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: 🚀 Deploy to Hostinger via FTPS (Subdomain charts.fluidpalette.com)
-        if: ${{ github.event_name == 'push' && secrets['HOSTINGER_FTP_SERVER'] != '' && secrets['HOSTINGER_FTP_USERNAME'] != '' }}
+        if: github.event_name == 'push' && steps.creds.outputs.has_ftp == 'true'
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets['HOSTINGER_FTP_SERVER'] }}
-          username: ${{ secrets['HOSTINGER_FTP_USERNAME'] }}
-          password: ${{ secrets['HOSTINGER_FTP_PASSWORD'] }}
+          server: ${{ secrets.HOSTINGER_FTP_SERVER }}
+          username: ${{ secrets.HOSTINGER_FTP_USERNAME }}
+          password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
           local-dir: ./dist/charts-dist/
           server-dir: ./charts/
           protocol: ftps
           dangerous-clean-slate: false
 
       - name: 🚀 Deploy to Hostinger VPS via SSH (Alternative)
-        if: ${{ github.event_name == 'push' && secrets['HOSTINGER_SSH_HOST'] != '' && secrets['HOSTINGER_SSH_USER'] != '' }}
+        if: github.event_name == 'push' && steps.creds.outputs.has_ssh == 'true'
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets['HOSTINGER_SSH_HOST'] }}
-          username: ${{ secrets['HOSTINGER_SSH_USER'] }}
-          key: ${{ secrets['HOSTINGER_SSH_KEY'] }}
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
           script: |
             cd /var/www/charts || exit 1
             git pull origin main
