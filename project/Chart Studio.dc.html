@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-83315ad6-994d-488f-957c-30230e1e485c/styles.css">
+<style>
+  body { margin: 0; background: #f3f2f2; }
+  input, select, button, textarea { font-family: Archivo, system-ui, sans-serif; }
+  .gx-cell:focus { outline: 2px solid #ec3013; outline-offset: -2px; background: #fff; }
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--color-bg);color:var(--color-text);font-family:var(--font-body)">
+
+  <sc-if value="{{ showAuth }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-wrap:wrap;min-height:100vh">
+      <div style="flex:1 1 420px;background:#ec3013;color:#f3f2f2;padding:64px 56px;display:flex;flex-direction:column;justify-content:space-between;min-height:420px">
+        <div style="font-family:var(--font-heading);font-weight:800;font-size:13px;letter-spacing:0.18em;text-transform:uppercase">Graphos</div>
+        <div>
+          <h1 style="font-size:clamp(38px,5vw,72px);line-height:0.98;letter-spacing:-0.03em;margin:0 0 20px;color:#f3f2f2;max-width:14ch">Data in. Chart out. Link on the slide.</h1>
+          <p style="font-size:17px;max-width:46ch;margin:0;color:#f3f2f2;opacity:0.92">Twelve advanced chart types, a spreadsheet you already know how to use, and a live URL your deck can point at — no add-ins, no local server.</p>
+        </div>
+        <div style="display:flex;gap:28px;flex-wrap:wrap;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;font-family:var(--font-heading);font-weight:800">
+          <span>Sankey</span><span>Sunburst</span><span>Chord</span><span>Marimekko</span><span>Radar</span>
+        </div>
+      </div>
+      <div style="flex:1 1 420px;display:flex;align-items:center;padding:64px 56px">
+        <div style="width:100%;max-width:400px">
+          <h2 style="font-size:30px;margin:0 0 8px">Sign in</h2>
+          <p style="font-size:14px;color:#605d5d;margin:0 0 24px">Your sheets and charts are stored against your Google account. Nothing is public until you publish it.</p>
+          <hr class="hr" style="margin:0 0 24px">
+          <button class="btn btn-secondary btn-block" onClick="{{ signIn }}" style="justify-content:flex-start;gap:12px;padding:14px 16px;border-width:2px;border-color:#201e1d;font-size:15px">
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#201e1d" d="M12 11v2.9h4.9a4.2 4.2 0 0 1-4.9 3.3 5.2 5.2 0 1 1 3.4-9.1l2.1-2.1A8.2 8.2 0 1 0 12 20.2c4.7 0 8-3.3 8-8 0-.5 0-.8-.1-1.2H12Z"/></svg>
+            Continue with Google
+          </button>
+          <p style="font-size:12px;color:#7d7979;margin:20px 0 0">Scopes requested: name, email, profile picture. Sheet data is written to your own row-scoped tables.</p>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showApp }}" hint-placeholder-val="{{ true }}">
+  <div>
+    <div style="display:flex;align-items:center;gap:16px;padding:0 24px;height:60px;border-bottom:2px solid var(--color-divider);background:var(--color-bg);position:sticky;top:0;z-index:20;flex-wrap:wrap">
+      <div style="font-family:var(--font-heading);font-weight:800;font-size:14px;letter-spacing:0.18em;text-transform:uppercase;cursor:pointer" onClick="{{ goHome }}">Graphos</div>
+      <div style="width:2px;height:24px;background:var(--color-divider)"></div>
+      <div style="font-size:13px;color:#605d5d;flex:1 1 120px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ title }}</div>
+      <div style="display:flex;gap:2px;border:1px solid var(--color-divider)">
+        <button class="btn" onClick="{{ setShellA }}" style="{{ shellAStyle }}">Split</button>
+        <button class="btn" onClick="{{ setShellB }}" style="{{ shellBStyle }}">Canvas</button>
+      </div>
+      <button class="btn btn-secondary" onClick="{{ goHome }}">My charts</button>
+      <div style="width:32px;height:32px;background:#201e1d;color:#f3f2f2;display:flex;align-items:center;justify-content:center;font-family:var(--font-heading);font-weight:800;font-size:12px">KK</div>
+    </div>
+
+    <sc-if value="{{ showDash }}" hint-placeholder-val="{{ false }}">
+      <div style="max-width:1280px;margin:0 auto;padding:40px 24px 80px">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px">
+          <div>
+            <div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#7d7979;font-family:var(--font-heading);font-weight:800">Workspace</div>
+            <h1 style="font-size:clamp(32px,4vw,46px);margin:4px 0 0">My charts</h1>
+          </div>
+          <button class="btn btn-primary" onClick="{{ newChart }}" style="padding:12px 18px">＋ New chart</button>
+        </div>
+        <hr class="hr" style="margin:0 0 0">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));border-left:1px solid var(--color-divider);border-top:0">
+          <sc-for list="{{ saved }}" as="c" hint-placeholder-count="6">
+            <div style="border-right:1px solid var(--color-divider);border-bottom:1px solid var(--color-divider);padding:18px;display:flex;flex-direction:column;gap:12px;cursor:pointer;background:var(--color-bg)" style-hover="background:var(--color-surface)" onClick="{{ c.open }}">
+              <div style="height:104px;background:var(--color-surface);display:flex;align-items:flex-end;gap:4px;padding:12px">
+                <sc-for list="{{ c.bars }}" as="b" hint-placeholder-count="5">
+                  <div style="{{ b.style }}"></div>
+                </sc-for>
+              </div>
+              <div>
+                <div style="font-family:var(--font-heading);font-weight:800;font-size:16px;line-height:1.2">{{ c.name }}</div>
+                <div style="font-size:12px;color:#7d7979;margin-top:4px">{{ c.meta }}</div>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <span class="tag tag-outline" style="font-size:11px">{{ c.type }}</span>
+                <span class="{{ c.stateClass }}" style="font-size:11px">{{ c.state }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showWizard }}" hint-placeholder-val="{{ true }}">
+    <div style="{{ shellWrapStyle }}">
+
+      <div style="{{ railStyle }}">
+        <sc-for list="{{ steps }}" as="s" hint-placeholder-count="5">
+          <button onClick="{{ s.onClick }}" style="{{ s.style }}">
+            <span style="{{ s.numStyle }}">{{ s.n }}</span>
+            <span style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0">
+              <span style="font-family:var(--font-heading);font-weight:800;font-size:13px;letter-spacing:0.02em">{{ s.label }}</span>
+              <span style="font-size:11px;color:#7d7979;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:22ch">{{ s.hint }}</span>
+            </span>
+          </button>
+        </sc-for>
+      </div>
+
+      <div style="{{ bodyStyle }}">
+
+        <div style="{{ workStyle }}">
+
+          <sc-if value="{{ isData }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:24px 28px 40px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap">
+              <div>
+                <h2 style="font-size:26px;margin:0">Your data</h2>
+                <p style="font-size:13px;color:#605d5d;margin:4px 0 0;max-width:56ch">Type in the grid, or paste a block straight from Excel. Every keystroke redraws the chart.</p>
+              </div>
+              <button class="btn btn-secondary" onClick="{{ openPaste }}">Paste from Excel</button>
+            </div>
+            <div style="display:flex;gap:0;margin:20px 0 0;border-bottom:2px solid var(--color-divider)">
+              <sc-for list="{{ sheetTabs }}" as="t" hint-placeholder-count="2">
+                <button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.name }}<span style="font-weight:400;color:#7d7979;font-size:11px;margin-left:8px">{{ t.meta }}</span></button>
+              </sc-for>
+            </div>
+
+            <sc-if value="{{ pasteOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="border:2px solid #ec3013;padding:16px;margin-top:16px;background:#fff2ef">
+                <div style="font-family:var(--font-heading);font-weight:800;font-size:13px;margin-bottom:8px">Paste tab-separated cells</div>
+                <textarea class="input" rows="4" placeholder="Source&#9;Target&#9;Value" style="width:100%;font-family:ui-monospace,monospace;font-size:12px" onChange="{{ onPasteText }}"></textarea>
+                <div style="display:flex;gap:8px;margin-top:10px">
+                  <button class="btn btn-primary" onClick="{{ applyPaste }}">Replace sheet</button>
+                  <button class="btn btn-secondary" onClick="{{ openPaste }}">Cancel</button>
+                  <span style="font-size:12px;color:#7c1405;align-self:center">{{ pasteNote }}</span>
+                </div>
+              </div>
+            </sc-if>
+
+            <div style="overflow-x:auto;margin-top:18px;border:1px solid var(--color-divider)">
+              <table style="border-collapse:collapse;width:100%;min-width:520px;font-size:13px">
+                <thead>
+                  <tr>
+                    <th style="width:34px;background:#201e1d"></th>
+                    <sc-for list="{{ gridCols }}" as="c" hint-placeholder-count="3">
+                      <th style="background:#201e1d;color:#f3f2f2;padding:0;text-align:left;border-left:1px solid #444141">
+                        <div style="display:flex;align-items:center;gap:6px;padding:8px 10px">
+                          <input value="{{ c.name }}" onChange="{{ c.rename }}" style="background:transparent;border:0;color:#f3f2f2;font-family:var(--font-heading);font-weight:800;font-size:12px;letter-spacing:0.04em;width:100%;min-width:60px;padding:0" />
+                          <select value="{{ c.type }}" onChange="{{ c.retype }}" style="background:transparent;border:1px solid #605d5d;color:#bab6b6;font-size:10px;padding:1px 2px;text-transform:uppercase">
+                            <option value="text">Text</option>
+                            <option value="number">Num</option>
+                            <option value="geo">Geo</option>
+                          </select>
+                        </div>
+                      </th>
+                    </sc-for>
+                    <th style="background:#201e1d;width:38px;padding:0;border-left:1px solid #444141">
+                      <button onClick="{{ addCol }}" title="Add column" style="width:100%;background:transparent;border:0;color:#f3f2f2;font-size:16px;cursor:pointer;padding:8px 0">＋</button>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <sc-for list="{{ gridRows }}" as="r" hint-placeholder-count="8">
+                    <tr>
+                      <td style="background:var(--color-surface);color:#7d7979;font-size:11px;text-align:center;border-bottom:1px solid var(--color-divider);font-variant-numeric:tabular-nums">{{ r.n }}</td>
+                      <sc-for list="{{ r.cells }}" as="cell" hint-placeholder-count="3">
+                        <td style="padding:0;border-left:1px solid var(--color-divider);border-bottom:1px solid var(--color-divider)">
+                          <input class="gx-cell" value="{{ cell.v }}" onChange="{{ cell.onChange }}" style="{{ cell.style }}" />
+                        </td>
+                      </sc-for>
+                      <td style="padding:0;border-left:1px solid var(--color-divider);border-bottom:1px solid var(--color-divider);text-align:center">
+                        <button onClick="{{ r.remove }}" title="Delete row" style="background:transparent;border:0;color:#9b9797;cursor:pointer;padding:6px 8px;font-size:13px" style-hover="color:#ec3013">✕</button>
+                      </td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+              <button class="btn btn-secondary" onClick="{{ addRow }}">＋ Row</button>
+              <span style="font-size:12px;color:#7d7979;align-self:center">{{ gridSummary }}</span>
+            </div>
+          </div>
+          </sc-if>
+
+          <sc-if value="{{ isChart }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:24px 28px 40px">
+            <h2 style="font-size:26px;margin:0">Chart type</h2>
+            <p style="font-size:13px;color:#605d5d;margin:4px 0 20px;max-width:60ch">Types are grouped by the question they answer. Anything your current sheets can't feed is shown with what it needs.</p>
+            <sc-for list="{{ chartGroups }}" as="g" hint-placeholder-count="5">
+              <div style="margin-bottom:28px">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+                  <div style="font-family:var(--font-heading);font-weight:800;font-size:12px;letter-spacing:0.12em;text-transform:uppercase">{{ g.name }}</div>
+                  <div style="flex:1;height:2px;background:var(--color-divider)"></div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,178px),1fr));gap:10px">
+                  <sc-for list="{{ g.items }}" as="c" hint-placeholder-count="4">
+                    <button onClick="{{ c.onClick }}" style="{{ c.style }}">
+                      <svg viewBox="0 0 60 34" style="width:60px;height:34px;display:block;margin-bottom:10px">
+                        <sc-for list="{{ c.icon }}" as="p" hint-placeholder-count="3">
+                          <path d="{{ p.d }}" fill="{{ p.fill }}" stroke="{{ p.stroke }}" stroke-width="{{ p.sw }}"></path>
+                        </sc-for>
+                      </svg>
+                      <div style="font-family:var(--font-heading);font-weight:800;font-size:13.5px;line-height:1.2">{{ c.name }}</div>
+                      <div style="font-size:11px;color:#7d7979;margin-top:3px;line-height:1.35">{{ c.note }}</div>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          </sc-if>
+
+          <sc-if value="{{ isMap }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:24px 28px 40px">
+            <h2 style="font-size:26px;margin:0">Map data to {{ chartName }}</h2>
+            <p style="font-size:13px;color:#605d5d;margin:4px 0 20px;max-width:60ch">{{ mapIntro }}</p>
+            <sc-for list="{{ mapFields }}" as="f" hint-placeholder-count="3">
+              <div style="display:flex;gap:20px;align-items:flex-start;padding:16px 0;border-top:1px solid var(--color-divider);flex-wrap:wrap">
+                <div style="flex:1 1 200px;min-width:0">
+                  <div style="font-family:var(--font-heading);font-weight:800;font-size:14px">{{ f.label }} <span style="color:#ec3013">{{ f.req }}</span></div>
+                  <div style="font-size:12px;color:#7d7979;margin-top:2px;max-width:40ch">{{ f.help }}</div>
+                </div>
+                <div style="flex:1 1 220px">
+                  <sc-if value="{{ f.single }}" hint-placeholder-val="{{ true }}">
+                    <select class="input" value="{{ f.value }}" onChange="{{ f.onChange }}" style="width:100%">
+                      <sc-for list="{{ f.options }}" as="o" hint-placeholder-count="3">
+                        <option value="{{ o.value }}">{{ o.label }}</option>
+                      </sc-for>
+                    </select>
+                  </sc-if>
+                  <sc-if value="{{ f.multi }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;gap:6px;flex-wrap:wrap">
+                      <sc-for list="{{ f.chips }}" as="o" hint-placeholder-count="5">
+                        <button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+            <div style="border-top:2px solid var(--color-divider);margin-top:8px;padding-top:16px;display:flex;gap:12px;align-items:flex-start">
+              <div style="width:8px;height:8px;background:{{ validColor }};margin-top:6px;flex:none"></div>
+              <div style="font-size:13px;color:#444141;max-width:64ch">{{ validNote }}</div>
+            </div>
+          </div>
+          </sc-if>
+
+          <sc-if value="{{ isStyle }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:24px 28px 40px">
+            <h2 style="font-size:26px;margin:0">Style</h2>
+            <p style="font-size:13px;color:#605d5d;margin:4px 0 20px;max-width:60ch">Boardroom defaults: flat fills, flush-left labels, no gradients. Changes apply to the live preview and the published viewer.</p>
+            <div class="field" style="margin-bottom:18px">
+              <label>Chart title</label>
+              <input class="input" value="{{ title }}" onChange="{{ onTitle }}" style="width:100%;max-width:460px" />
+            </div>
+            <div class="field" style="margin-bottom:18px">
+              <label>Subtitle / source line</label>
+              <input class="input" value="{{ subtitle }}" onChange="{{ onSubtitle }}" style="width:100%;max-width:460px" />
+            </div>
+            <div style="margin-bottom:18px">
+              <div style="font-size:12px;margin-bottom:6px">Theme</div>
+              <div style="display:flex;gap:2px;border:1px solid var(--color-divider);width:fit-content">
+                <sc-for list="{{ grounds }}" as="g" hint-placeholder-count="2">
+                  <button onClick="{{ g.onClick }}" style="{{ g.style }}">{{ g.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="margin-bottom:18px">
+              <div style="font-size:12px;margin-bottom:6px">Palette</div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <sc-for list="{{ palettes }}" as="p" hint-placeholder-count="6">
+                  <button onClick="{{ p.onClick }}" style="{{ p.style }}">
+                    <span style="display:flex;gap:0">
+                      <sc-for list="{{ p.swatches }}" as="s" hint-placeholder-count="5">
+                        <span style="{{ s.style }}"></span>
+                      </sc-for>
+                    </span>
+                    <span style="display:flex;flex-direction:column;align-items:flex-start">
+                      <span style="font-family:var(--font-heading);font-weight:800;font-size:12px">{{ p.name }}</span>
+                      <span style="font-size:10px;color:#7d7979">{{ p.note }}</span>
+                    </span>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+            <sc-if value="{{ isCustom }}" hint-placeholder-val="{{ false }}">
+              <div style="border:2px solid var(--color-divider);padding:14px;margin-bottom:18px">
+                <div style="font-family:var(--font-heading);font-weight:800;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px">Your swatches</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                  <sc-for list="{{ customSwatches }}" as="c" hint-placeholder-count="6">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+                      <input type="color" value="{{ c.value }}" onChange="{{ c.onChange }}" style="width:44px;height:36px;padding:0;border:1px solid var(--color-divider);background:transparent;cursor:pointer" />
+                      <button onClick="{{ c.remove }}" style="background:transparent;border:0;color:#9b9797;font-size:11px;cursor:pointer;padding:0">remove</button>
+                    </div>
+                  </sc-for>
+                  <button class="btn btn-secondary" onClick="{{ addSwatch }}" style="align-self:flex-start">＋ Swatch</button>
+                </div>
+                <div style="font-size:11.5px;color:#7d7979;margin-top:10px;max-width:52ch">Series are assigned in order and wrap when there are more categories than swatches.</div>
+              </div>
+            </sc-if>
+            <div style="margin-bottom:18px;max-width:340px">
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+                <span>Fill transparency</span><span style="font-variant-numeric:tabular-nums;color:#7d7979">{{ alphaPct }}</span>
+              </div>
+              <input type="range" min="0.15" max="1" step="0.05" value="{{ alpha }}" onChange="{{ onAlpha }}" onInput="{{ onAlpha }}" style="width:100%;accent-color:#ec3013" />
+              <div style="font-size:11.5px;color:#7d7979;margin-top:4px">Lower values let overlapping ribbons, arcs and polygons read through each other.</div>
+            </div>
+            <div style="display:flex;gap:24px;flex-wrap:wrap">
+              <sc-for list="{{ toggles }}" as="t" hint-placeholder-count="3">
+                <label style="display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer">
+                  <input type="checkbox" checked="{{ t.on }}" onChange="{{ t.onChange }}" style="accent-color:#ec3013;width:16px;height:16px" />
+                  {{ t.label }}
+                </label>
+              </sc-for>
+            </div>
+          </div>
+          </sc-if>
+
+          <sc-if value="{{ isPublish }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:24px 28px 40px">
+            <h2 style="font-size:26px;margin:0">Publish &amp; put it on a slide</h2>
+            <p style="font-size:13px;color:#605d5d;margin:4px 0 20px;max-width:62ch">Publishing writes a versioned snapshot and serves it from a static viewer URL. PowerPoint only ever needs a hyperlink.</p>
+
+            <div style="border:2px solid var(--color-divider);padding:16px;margin-bottom:20px">
+              <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#7d7979;font-family:var(--font-heading);font-weight:800;margin-bottom:8px">Live link</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <code style="flex:1 1 260px;font-family:ui-monospace,monospace;font-size:13px;background:var(--color-surface);padding:10px 12px;overflow:auto;white-space:nowrap">{{ url }}</code>
+                <button class="btn btn-primary" onClick="{{ copy }}">{{ copyLabel }}</button>
+              </div>
+              <div style="display:flex;gap:20px;margin-top:14px;flex-wrap:wrap;font-size:12px;color:#605d5d">
+                <span>Version <strong>{{ version }}</strong></span>
+                <span>Updated {{ updated }}</span>
+                <span>Access: <strong>{{ access }}</strong></span>
+              </div>
+              <div style="display:flex;gap:2px;margin-top:12px;border:1px solid var(--color-divider);width:fit-content;max-width:100%;flex-wrap:wrap">
+                <sc-for list="{{ accessOpts }}" as="a" hint-placeholder-count="3">
+                  <button onClick="{{ a.onClick }}" style="{{ a.style }}">{{ a.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="font-family:var(--font-heading);font-weight:800;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px">How it lands in the deck</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:10px;margin-bottom:24px">
+              <sc-for list="{{ embedOpts }}" as="e" hint-placeholder-count="3">
+                <button onClick="{{ e.onClick }}" style="{{ e.style }}">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                    <span style="font-family:var(--font-heading);font-weight:800;font-size:13.5px">{{ e.name }}</span>
+                    <span style="{{ e.badgeStyle }}">{{ e.badge }}</span>
+                  </div>
+                  <div style="font-size:11.5px;color:#605d5d;margin-top:6px;line-height:1.4">{{ e.note }}</div>
+                </button>
+              </sc-for>
+            </div>
+
+            <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+              <div style="flex:1 1 320px;min-width:0">
+                <div style="font-family:var(--font-heading);font-weight:800;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px">Slide preview</div>
+                <div style="border:2px solid var(--color-divider);background:#fff;aspect-ratio:16/9;padding:18px 20px;display:flex;flex-direction:column;gap:10px;position:relative">
+                  <div style="font-family:var(--font-heading);font-weight:800;font-size:15px;line-height:1.1">{{ title }}</div>
+                  <div style="{{ slideCanvasStyle }}">
+                    <svg viewBox="{{ vb }}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block">
+                      <sc-for list="{{ shapePaths }}" as="s" hint-placeholder-count="6">
+                        <path d="{{ s.d }}" fill="{{ s.fill }}" stroke="{{ s.stroke }}" stroke-width="{{ s.sw }}" opacity="{{ s.op }}"></path>
+                      </sc-for>
+                      <sc-for list="{{ shapeRects }}" as="s" hint-placeholder-count="6">
+                        <rect x="{{ s.x }}" y="{{ s.y }}" width="{{ s.w }}" height="{{ s.h }}" fill="{{ s.fill }}" stroke="{{ s.stroke }}" stroke-width="{{ s.sw }}" opacity="{{ s.op }}"></rect>
+                      </sc-for>
+                      <sc-for list="{{ shapeCircles }}" as="s" hint-placeholder-count="4">
+                        <circle cx="{{ s.cx }}" cy="{{ s.cy }}" r="{{ s.r }}" fill="{{ s.fill }}" stroke="{{ s.stroke }}" stroke-width="{{ s.sw }}" opacity="{{ s.op }}"></circle>
+                      </sc-for>
+                    </svg>
+                    <div style="position:absolute;right:8px;bottom:8px;background:#ec3013;color:#f3f2f2;font-family:var(--font-heading);font-weight:800;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;padding:4px 8px">▶ Open live chart</div>
+                  </div>
+                  <div style="font-size:9px;color:#9b9797;font-family:ui-monospace,monospace">{{ url }}</div>
+                </div>
+              </div>
+              <div style="flex:1 1 260px">
+                <div style="font-family:var(--font-heading);font-weight:800;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px">Steps in PowerPoint</div>
+                <sc-for list="{{ pptSteps }}" as="s" hint-placeholder-count="4">
+                  <div style="display:flex;gap:12px;padding:10px 0;border-top:1px solid var(--color-divider)">
+                    <div style="font-family:var(--font-heading);font-weight:800;font-size:12px;color:#ec3013;width:16px;flex:none">{{ s.n }}</div>
+                    <div style="font-size:13px;line-height:1.45;color:#444141">{{ s.t }}</div>
+                  </div>
+                </sc-for>
+                <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+                  <button class="btn btn-secondary" onClick="{{ noop }}">Download slide PNG</button>
+                  <button class="btn btn-secondary" onClick="{{ noop }}">Copy iframe</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          </sc-if>
+
+          <div style="position:sticky;bottom:0;background:var(--color-bg);border-top:2px solid var(--color-divider);padding:12px 28px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-secondary" onClick="{{ back }}" disabled="{{ atFirst }}">← Back</button>
+            <button class="btn btn-primary" onClick="{{ next }}">{{ nextLabel }}</button>
+            <span style="font-size:12px;color:#7d7979;margin-left:auto">{{ stepMeta }}</span>
+          </div>
+        </div>
+
+        <div style="{{ previewStyle }}">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 20px;border-bottom:1px solid var(--color-divider);flex-wrap:wrap">
+            <div style="font-family:var(--font-heading);font-weight:800;font-size:11px;letter-spacing:0.14em;text-transform:uppercase">Live preview</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span style="width:6px;height:6px;background:#ec3013;display:block"></span>
+              <span style="font-size:11px;color:#7d7979">{{ syncNote }}</span>
+            </div>
+          </div>
+          <div style="{{ canvasStyle }}">
+            <div style="width:100%;max-width:820px">
+              <div style="{{ previewTitleStyle }}">{{ title }}</div>
+              <div style="{{ previewSubStyle }}">{{ subtitle }}</div>
+              <hr style="{{ previewRuleStyle }}" />
+              <sc-if value="{{ chartLocked }}" hint-placeholder-val="{{ false }}">
+                <div style="border:2px dashed var(--color-divider);padding:40px 28px;background:var(--color-surface)">
+                  <div style="font-family:var(--font-heading);font-weight:800;font-size:17px;margin-bottom:6px">{{ lockTitle }}</div>
+                  <div style="font-size:13px;color:#605d5d;max-width:48ch;margin-bottom:16px">{{ lockNote }}</div>
+                  <button class="btn btn-primary" onClick="{{ goData }}">Add the columns</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ chartReady }}" hint-placeholder-val="{{ true }}">
+                <svg viewBox="{{ vb }}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block;font-family:Archivo,system-ui,sans-serif">
+                  <sc-for list="{{ shapePaths }}" as="s" hint-placeholder-count="8">
+                    <path d="{{ s.d }}" fill="{{ s.fill }}" stroke="{{ s.stroke }}" stroke-width="{{ s.sw }}" opacity="{{ s.op }}"></path>
+                  </sc-for>
+                  <sc-for list="{{ shapeRects }}" as="s" hint-placeholder-count="8">
+                    <rect x="{{ s.x }}" y="{{ s.y }}" width="{{ s.w }}" height="{{ s.h }}" fill="{{ s.fill }}" stroke="{{ s.stroke }}" stroke-width="{{ s.sw }}" opacity="{{ s.op }}"></rect>
+                  </sc-for>
+                  <sc-for list="{{ shapeCircles }}" as="s" hint-placeholder-count="4">
+                    <circle cx="{{ s.cx }}" cy="{{ s.cy }}" r="{{ s.r }}" fill="{{ s.fill }}" stroke="{{ s.stroke }}" stroke-width="{{ s.sw }}" opacity="{{ s.op }}"></circle>
+                  </sc-for>
+                  <sc-for list="{{ shapeLines }}" as="s" hint-placeholder-count="4">
+                    <line x1="{{ s.x1 }}" y1="{{ s.y1 }}" x2="{{ s.x2 }}" y2="{{ s.y2 }}" stroke="{{ s.stroke }}" stroke-width="{{ s.sw }}" opacity="{{ s.op }}"></line>
+                  </sc-for>
+                  <sc-for list="{{ shapeLabels }}" as="s" hint-placeholder-count="6">
+                    <text x="{{ s.x }}" y="{{ s.y }}" fill="{{ s.fill }}" font-size="{{ s.size }}" font-weight="{{ s.weight }}" text-anchor="{{ s.anchor }}" transform="{{ s.tr }}">{{ s.text }}</text>
+                  </sc-for>
+                </svg>
+              </sc-if>
+              <div style="{{ previewMetaStyle }}">
+                <span>{{ chartName }}</span>
+                <span>{{ rowNote }}</span>
+                <span style="margin-left:auto">graphos.app</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    </sc-if>
+  </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;defaultChart&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;sankey&quot;,&quot;sunburst&quot;,&quot;treemap&quot;,&quot;pack&quot;,&quot;chord&quot;,&quot;network&quot;,&quot;parallel&quot;,&quot;marimekko&quot;,&quot;radar&quot;],&quot;default&quot;:&quot;sankey&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype state&quot;},&quot;defaultPalette&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;accent&quot;,&quot;ink&quot;,&quot;duo&quot;,&quot;wash&quot;,&quot;deep&quot;,&quot;custom&quot;],&quot;default&quot;:&quot;accent&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype state&quot;},&quot;defaultShell&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;split&quot;,&quot;canvas&quot;],&quot;default&quot;:&quot;split&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype state&quot;},&quot;startSignedIn&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototype state&quot;}}">
+class Component extends DCLogic {
+  state = {
+    signedIn: null, view: 'wizard', step: 0, shell: null,
+    sheet: 'flows', chart: null, palette: null,
+    labels: true, values: true, sortDesc: true,
+    fillAlpha: 1, ground: 'light',
+    customColors: ['#ec3013', '#201e1d', '#ff9783', '#605d5d', '#ffc4b8', '#9b9797'],
+    title: 'Acquisition → activation flow',
+    subtitle: 'Q3 FY26 · all regions · n = 14,900 sessions',
+    access: 'Anyone with link', embed: 'viewer', copied: false,
+    pasteOpen: false, pasteText: '', pasteNote: '',
+    mapFlow: { s: 0, t: 1, v: 2 },
+    mapMatrix: { label: 0, measures: [1, 2, 3, 4, 5] },
+    sheets: {
+      flows: {
+        name: 'Flows', cols: ['Source', 'Target', 'Value'], types: ['text', 'text', 'number'],
+        rows: [
+          ['Organic search', 'Homepage', '4200'],
+          ['Paid social', 'Homepage', '1800'],
+          ['Email', 'Homepage', '1500'],
+          ['Referral', 'Product tour', '900'],
+          ['Homepage', 'Sign-up', '3600'],
+          ['Homepage', 'Pricing', '2400'],
+          ['Product tour', 'Sign-up', '700'],
+          ['Pricing', 'Sign-up', '1500'],
+          ['Sign-up', 'Activated', '3900'],
+          ['Sign-up', 'Dormant', '1900'],
+        ],
+      },
+      segments: {
+        name: 'Segments', cols: ['Segment', 'Reach', 'Engagement', 'Retention', 'Revenue', 'Cost'],
+        types: ['text', 'number', 'number', 'number', 'number', 'number'],
+        rows: [
+          ['Enterprise', '82', '64', '91', '96', '70'],
+          ['Mid-market', '68', '77', '74', '71', '55'],
+          ['SMB', '91', '58', '46', '43', '38'],
+          ['Self-serve', '74', '83', '39', '29', '22'],
+        ],
+      },
+    },
+  };
+
+  charts = [
+    { g: 'Flow & hierarchy', items: [
+      { id: 'sankey', name: 'Sankey', shape: 'flow', note: 'Volume moving between stages' },
+      { id: 'sunburst', name: 'Sunburst', shape: 'flow', note: 'Nested shares, radially' },
+      { id: 'treemap', name: 'Treemap', shape: 'flow', note: 'Part-to-whole by area' },
+      { id: 'pack', name: 'Circle packing', shape: 'flow', note: 'Grouped magnitudes' },
+    ] },
+    { g: 'Relationship', items: [
+      { id: 'chord', name: 'Chord', shape: 'flow', note: 'Two-way exchange between nodes' },
+      { id: 'network', name: 'Network', shape: 'flow', note: 'Who connects to whom' },
+      { id: 'parallel', name: 'Parallel coordinates', shape: 'matrix', note: 'Many measures, one line each' },
+      { id: 'violin', name: 'Violin', shape: 'obs', note: 'Distribution shape per group' },
+    ] },
+    { g: 'Composition', items: [
+      { id: 'marimekko', name: 'Marimekko', shape: 'matrix', note: 'Share within share, weighted' },
+    ] },
+    { g: 'Comparison', items: [
+      { id: 'radar', name: 'Radar / spider', shape: 'matrix', note: 'Profile across 3+ measures' },
+    ] },
+    { g: 'Geospatial', items: [
+      { id: 'symbolmap', name: 'Proportional symbol map', shape: 'geo', note: 'Magnitude by place' },
+      { id: 'connmap', name: 'Connection map', shape: 'geo', note: 'Origin → destination arcs' },
+    ] },
+  ];
+
+  palettesDef = {
+    accent: { name: 'Signal', note: 'Accent ramp', colors: ['#ec3013', '#ff563c', '#ff9783', '#ae1800', '#ffc4b8', '#7c1405', '#dd2b0f', '#4d170e'] },
+    ink: { name: 'Ink', note: 'Neutral ramp', colors: ['#201e1d', '#444141', '#605d5d', '#7d7979', '#9b9797', '#bab6b6', '#2d2b2b', '#d7d3d3'] },
+    duo: { name: 'Duotone', note: 'Accent + ink', colors: ['#ec3013', '#201e1d', '#ff9783', '#605d5d', '#ae1800', '#9b9797', '#ff563c', '#444141'] },
+    wash: { name: 'Wash', note: 'Light tints', colors: ['#ffc4b8', '#d7d3d3', '#ff9783', '#bab6b6', '#ffe0d9', '#eae7e7', '#ff563c', '#9b9797'] },
+    deep: { name: 'Deep', note: 'Dark steps', colors: ['#4d170e', '#2d2b2b', '#7c1405', '#444141', '#ae1800', '#605d5d', '#dd2b0f', '#7d7979'] },
+    custom: { name: 'Custom', note: 'Your swatches', colors: [] },
+  };
+
+  stepDefs = [
+    { label: 'Data', hint: 'Enter or paste rows' },
+    { label: 'Chart', hint: 'Pick a type' },
+    { label: 'Map', hint: 'Columns → encodings' },
+    { label: 'Style', hint: 'Title, palette, labels' },
+    { label: 'Publish', hint: 'Link for the deck' },
+  ];
+
+  // ── helpers ──────────────────────────────────────────────
+  get chartId() { return this.state.chart || this.props.defaultChart || 'sankey'; }
+  get paletteId() { return this.state.palette || this.props.defaultPalette || 'accent'; }
+  get shell() { return this.state.shell || this.props.defaultShell || 'split'; }
+  get signedIn() { return this.state.signedIn === null ? !!this.props.startSignedIn : this.state.signedIn; }
+  spec() { let f = null; this.charts.forEach(g => g.items.forEach(i => { if (i.id === this.chartId) f = i; })); return f; }
+  colors() {
+    if (this.paletteId === 'custom') { const c = (this.state.customColors || []).filter(Boolean); return c.length ? c : ['#ec3013']; }
+    return this.palettesDef[this.paletteId].colors;
+  }
+  col(i) { const c = this.colors(); return c[i % c.length]; }
+  get dark() { return this.state.ground === 'dark'; }
+  get ink() { return this.dark ? '#f3f2f2' : '#201e1d'; }
+  get onInk() { return this.dark ? '#201e1d' : '#f3f2f2'; }
+  get groundBg() { return this.dark ? '#201e1d' : '#f3f2f2'; }
+  get gridLine() { return this.dark ? '#605d5d' : '#bab6b6'; }
+  get muted() { return this.dark ? '#bab6b6' : '#7d7979'; }
+  fmt(v) { const n = +v; if (!isFinite(n)) return String(v); return n >= 1000 ? (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + 'k' : String(n); }
+  set(patch) { this.setState(patch); }
+
+  links() {
+    const s = this.state.sheets.flows, m = this.state.mapFlow, out = [];
+    s.rows.forEach(r => {
+      const v = parseFloat(r[m.v]);
+      if (r[m.s] && r[m.t] && isFinite(v) && v > 0) out.push({ s: String(r[m.s]), t: String(r[m.t]), v });
+    });
+    return out;
+  }
+  matrix() {
+    const s = this.state.sheets.segments, m = this.state.mapMatrix;
+    const axes = m.measures.map(i => s.cols[i]).filter(Boolean);
+    const rows = s.rows.filter(r => r[m.label]).map(r => ({
+      label: String(r[m.label]),
+      vals: m.measures.map(i => { const n = parseFloat(r[i]); return isFinite(n) ? n : 0; }),
+    }));
+    return { axes, rows };
+  }
+  arc(cx, cy, r0, r1, a0, a1) {
+    const p = (r, a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+    const laf = (a1 - a0) > Math.PI ? 1 : 0;
+    const [x0, y0] = p(r1, a0), [x1, y1] = p(r1, a1), [x2, y2] = p(r0, a1), [x3, y3] = p(r0, a0);
+    const f = n => n.toFixed(2);
+    if (r0 <= 0.01) return `M${f(cx)},${f(cy)}L${f(x0)},${f(y0)}A${f(r1)},${f(r1)} 0 ${laf} 1 ${f(x1)},${f(y1)}Z`;
+    return `M${f(x0)},${f(y0)}A${f(r1)},${f(r1)} 0 ${laf} 1 ${f(x1)},${f(y1)}L${f(x2)},${f(y2)}A${f(r0)},${f(r0)} 0 ${laf} 0 ${f(x3)},${f(y3)}Z`;
+  }
+
+  // ── chart builders ───────────────────────────────────────
+  build() {
+    const W = 760, H = 430;
+    const out = { vb: `0 0 ${W} ${H}`, paths: [], rects: [], circles: [], lines: [], labels: [] };
+    const id = this.chartId, lab = this.state.labels, showV = this.state.values;
+    const L = this.links();
+    const INK = this.ink, ONINK = this.onInk, GROUND = this.groundBg, GRID = this.gridLine, MUTED = this.muted;
+    const push = (k, o) => out[k].push(Object.assign({ fill: 'none', stroke: 'none', sw: 0, op: 1 }, o));
+    const text = o => out.labels.push(Object.assign({ fill: INK, size: 11, weight: 400, anchor: 'start', tr: '' }, o));
+
+    if (id === 'sankey') {
+      const nodes = {}, order = [];
+      L.forEach(l => [l.s, l.t].forEach(n => { if (!nodes[n]) { nodes[n] = { name: n, in: 0, out: 0, d: 0 }; order.push(n); } }));
+      L.forEach(l => { nodes[l.s].out += l.v; nodes[l.t].in += l.v; });
+      for (let k = 0; k < order.length; k++) L.forEach(l => { nodes[l.t].d = Math.max(nodes[l.t].d, nodes[l.s].d + 1); });
+      const maxD = Math.max(0, ...order.map(n => nodes[n].d));
+      const cols = {};
+      order.forEach(n => { (cols[nodes[n].d] = cols[nodes[n].d] || []).push(nodes[n]); });
+      const pad = 26, nw = 13, gap = 14;
+      Object.keys(cols).forEach(d => {
+        const arr = cols[d];
+        if (this.state.sortDesc) arr.sort((a, b) => Math.max(b.in, b.out) - Math.max(a.in, a.out));
+        const total = arr.reduce((a, n) => a + Math.max(n.in, n.out), 0) || 1;
+        const avail = H - 2 * pad - gap * (arr.length - 1);
+        let y = pad;
+        arr.forEach(n => {
+          n.h = Math.max(4, (Math.max(n.in, n.out) / total) * avail);
+          n.x = maxD ? pad + (+d) * ((W - 2 * pad - nw - 110) / maxD) : pad;
+          n.y = y; n.w = nw; n.sy = y; n.ty = y; y += n.h + gap;
+        });
+      });
+      const sorted = L.slice().sort((a, b) => b.v - a.v);
+      const scaleOf = n => n.h / (Math.max(n.in, n.out) || 1);
+      sorted.forEach((l, i) => {
+        const a = nodes[l.s], b = nodes[l.t];
+        const th1 = l.v * scaleOf(a), th2 = l.v * scaleOf(b);
+        const x0 = a.x + a.w, x1 = b.x, mx = (x0 + x1) / 2;
+        const s0 = a.sy, s1 = a.sy + th1, t0 = b.ty, t1 = b.ty + th2;
+        a.sy += th1; b.ty += th2;
+        push('paths', { d: `M${x0},${s0}C${mx},${s0} ${mx},${t0} ${x1},${t0}L${x1},${t1}C${mx},${t1} ${mx},${s1} ${x0},${s1}Z`, fill: this.col(i), op: 0.32 });
+      });
+      order.forEach((n, i) => {
+        const nd = nodes[n];
+        push('rects', { x: nd.x, y: nd.y, w: nd.w, h: nd.h, fill: INK });
+        if (lab) text({ x: nd.d === maxD ? nd.x - 8 : nd.x + nd.w + 8, y: nd.y + nd.h / 2 + 4, text: n + (showV ? '  ' + this.fmt(Math.max(nd.in, nd.out)) : ''), anchor: nd.d === maxD ? 'end' : 'start', size: 12, weight: 600 });
+      });
+    }
+
+    if (id === 'sunburst' || id === 'pack' || id === 'chord' || id === 'network' || id === 'treemap') {
+      const groups = {};
+      L.forEach(l => { (groups[l.s] = groups[l.s] || { name: l.s, v: 0, kids: [] }); groups[l.s].v += l.v; groups[l.s].kids.push({ name: l.t, v: l.v }); });
+      let gs = Object.keys(groups).map(k => groups[k]);
+      if (this.state.sortDesc) gs.sort((a, b) => b.v - a.v);
+      const total = gs.reduce((a, g) => a + g.v, 0) || 1;
+
+      if (id === 'sunburst') {
+        const cx = W / 2, cy = H / 2, r0 = 46, r1 = 118, r2 = 188;
+        let a = -Math.PI / 2;
+        push('circles', { cx, cy, r: r0 - 4, fill: INK });
+        text({ x: cx, y: cy - 2, text: 'TOTAL', anchor: 'middle', size: 9, weight: 800, fill: ONINK });
+        text({ x: cx, y: cy + 12, text: this.fmt(total), anchor: 'middle', size: 14, weight: 800, fill: ONINK });
+        gs.forEach((g, i) => {
+          const sweep = (g.v / total) * Math.PI * 2, a1 = a + sweep;
+          push('paths', { d: this.arc(cx, cy, r0, r1, a, a1), fill: this.col(i), stroke: GROUND, sw: 2 });
+          let ka = a;
+          g.kids.forEach((k, j) => {
+            const ks = (k.v / total) * Math.PI * 2;
+            push('paths', { d: this.arc(cx, cy, r1 + 2, r2, ka, ka + ks), fill: this.col(i), op: 0.45, stroke: GROUND, sw: 2 });
+            if (lab && ks > 0.16) {
+              const mid = ka + ks / 2, deg = mid * 180 / Math.PI;
+              const flip = deg > 90 || deg < -90;
+              const rr = r2 + 8, x = cx + rr * Math.cos(mid), y = cy + rr * Math.sin(mid);
+              text({ x, y: y + 3, text: k.name, anchor: flip ? 'end' : 'start', size: 10.5, weight: 600, tr: `rotate(${flip ? deg + 180 : deg},${x.toFixed(1)},${y.toFixed(1)})` });
+            }
+            ka += ks;
+          });
+          if (lab && sweep > 0.2) {
+            const mid = a + sweep / 2, rr = (r0 + r1) / 2;
+            text({ x: cx + rr * Math.cos(mid), y: cy + rr * Math.sin(mid) + 4, text: g.name, anchor: 'middle', size: 11, weight: 800, fill: '#f3f2f2' });
+          }
+          a = a1;
+        });
+      }
+
+      if (id === 'treemap') {
+        const pad = 8; let x = pad, y = pad, w = W - 2 * pad, h = H - 2 * pad;
+        let acc = 0;
+        gs.forEach((g, i) => {
+          const gw = (g.v / total) * w;
+          push('rects', { x: x + acc, y, w: gw - 3, h, fill: this.col(i), op: 0.22 });
+          let ky = y, kids = g.kids.slice().sort((a, b) => b.v - a.v);
+          kids.forEach((k, j) => {
+            const kh = (k.v / g.v) * h;
+            push('rects', { x: x + acc, y: ky, w: gw - 3, h: kh - 3, fill: this.col(i), op: 0.85 });
+            if (lab && kh > 26 && gw > 60) {
+              text({ x: x + acc + 10, y: ky + 20, text: k.name, size: 11.5, weight: 800, fill: '#f3f2f2' });
+              if (showV) text({ x: x + acc + 10, y: ky + 34, text: this.fmt(k.v), size: 11, fill: '#f3f2f2', op: 0.9 });
+            }
+            ky += kh;
+          });
+          if (lab && gw > 70) text({ x: x + acc + 10, y: y + h - 10, text: g.name.toUpperCase(), size: 9.5, weight: 800, fill: INK });
+          acc += gw;
+        });
+      }
+
+      if (id === 'pack') {
+        const cx = W / 2, cy = H / 2, R = 175;
+        const maxV = Math.max(...gs.map(g => g.v));
+        gs.forEach((g, i) => {
+          const ang = (i / gs.length) * Math.PI * 2 - Math.PI / 2;
+          const gr = 34 + 58 * Math.sqrt(g.v / maxV);
+          const gx = cx + (R - gr * 0.55) * Math.cos(ang), gy = cy + (R - gr * 0.55) * Math.sin(ang) * 0.74;
+          push('circles', { cx: gx, cy: gy, r: gr, fill: this.col(i), op: 0.2, stroke: this.col(i), sw: 1.5 });
+          const kmax = Math.max(...g.kids.map(k => k.v));
+          g.kids.forEach((k, j) => {
+            const kr = gr * 0.34 * Math.sqrt(k.v / kmax) + 6;
+            const ka = (j / Math.max(1, g.kids.length)) * Math.PI * 2;
+            const off = g.kids.length > 1 ? gr - kr - 5 : 0;
+            push('circles', { cx: gx + off * Math.cos(ka), cy: gy + off * Math.sin(ka), r: kr, fill: this.col(i), op: 0.9 });
+          });
+          if (lab) text({ x: gx, y: gy + gr + 15, text: g.name, anchor: 'middle', size: 11, weight: 800 });
+        });
+      }
+
+      if (id === 'chord' || id === 'network') {
+        const cx = W / 2, cy = H / 2, R = 150;
+        const nodes = {}, order = [];
+        L.forEach(l => [l.s, l.t].forEach(n => { if (!nodes[n]) { nodes[n] = { name: n, v: 0, i: order.length }; order.push(n); } }));
+        L.forEach(l => { nodes[l.s].v += l.v; nodes[l.t].v += l.v; });
+        const tot = order.reduce((a, n) => a + nodes[n].v, 0) || 1;
+        const maxV = Math.max(...order.map(n => nodes[n].v));
+        if (id === 'chord') {
+          let a = -Math.PI / 2;
+          order.forEach((n, i) => {
+            const sw = (nodes[n].v / tot) * (Math.PI * 2 - order.length * 0.035);
+            nodes[n].a0 = a; nodes[n].a1 = a + sw; nodes[n].cur = a;
+            push('paths', { d: this.arc(cx, cy, R, R + 15, a, a + sw), fill: this.col(i) });
+            if (lab) {
+              const mid = a + sw / 2, deg = mid * 180 / Math.PI, flip = deg > 90 || deg < -90;
+              const rr = R + 22, x = cx + rr * Math.cos(mid), y = cy + rr * Math.sin(mid);
+              text({ x, y: y + 3, text: n, anchor: flip ? 'end' : 'start', size: 10.5, weight: 600, tr: `rotate(${flip ? deg + 180 : deg},${x.toFixed(1)},${y.toFixed(1)})` });
+            }
+            a += sw + 0.035;
+          });
+          L.forEach((l, i) => {
+            const A = nodes[l.s], B = nodes[l.t];
+            const wA = (l.v / tot) * (Math.PI * 2 - order.length * 0.035), wB = wA;
+            const p = (r, an) => [cx + r * Math.cos(an), cy + r * Math.sin(an)];
+            const [x0, y0] = p(R, A.cur), [x1, y1] = p(R, A.cur + wA);
+            const [x2, y2] = p(R, B.cur), [x3, y3] = p(R, B.cur + wB);
+            A.cur += wA; B.cur += wB;
+            push('paths', { d: `M${x0.toFixed(1)},${y0.toFixed(1)}Q${cx},${cy} ${x2.toFixed(1)},${y2.toFixed(1)}A${R},${R} 0 0 1 ${x3.toFixed(1)},${y3.toFixed(1)}Q${cx},${cy} ${x1.toFixed(1)},${y1.toFixed(1)}A${R},${R} 0 0 0 ${x0.toFixed(1)},${y0.toFixed(1)}Z`, fill: this.col(i), op: 0.3 });
+          });
+        } else {
+          order.forEach((n, i) => {
+            const ang = (i / order.length) * Math.PI * 2 - Math.PI / 2;
+            nodes[n].x = cx + R * Math.cos(ang); nodes[n].y = cy + R * Math.sin(ang) * 0.82;
+            nodes[n].r = 8 + 20 * Math.sqrt(nodes[n].v / maxV);
+          });
+          L.forEach((l, i) => {
+            const A = nodes[l.s], B = nodes[l.t];
+            push('paths', { d: `M${A.x.toFixed(1)},${A.y.toFixed(1)}Q${cx},${cy} ${B.x.toFixed(1)},${B.y.toFixed(1)}`, stroke: this.col(i), sw: Math.max(1, (l.v / maxV) * 9), op: 0.5 });
+          });
+          order.forEach((n, i) => {
+            const nd = nodes[n];
+            push('circles', { cx: nd.x, cy: nd.y, r: nd.r, fill: this.col(i), stroke: GROUND, sw: 2 });
+            if (lab) text({ x: nd.x, y: nd.y + nd.r + 14, text: n, anchor: 'middle', size: 10.5, weight: 600 });
+          });
+        }
+      }
+    }
+
+    if (id === 'radar' || id === 'parallel' || id === 'marimekko') {
+      const M = this.matrix();
+      if (id === 'radar') {
+        const cx = W / 2, cy = H / 2 + 4, R = 160, n = M.axes.length || 1;
+        const ang = i => (i / n) * Math.PI * 2 - Math.PI / 2;
+        [0.25, 0.5, 0.75, 1].forEach(f => {
+          const pts = M.axes.map((_, i) => `${(cx + R * f * Math.cos(ang(i))).toFixed(1)},${(cy + R * f * Math.sin(ang(i))).toFixed(1)}`).join('L');
+          push('paths', { d: `M${pts}Z`, stroke: GRID, sw: 1 });
+        });
+        M.axes.forEach((a, i) => {
+          out.lines.push({ x1: cx, y1: cy, x2: cx + R * Math.cos(ang(i)), y2: cy + R * Math.sin(ang(i)), stroke: GRID, sw: 1, op: 1 });
+          const rr = R + 22, x = cx + rr * Math.cos(ang(i)), y = cy + rr * Math.sin(ang(i));
+          text({ x, y: y + 4, text: a, anchor: Math.abs(Math.cos(ang(i))) < 0.2 ? 'middle' : (Math.cos(ang(i)) > 0 ? 'start' : 'end'), size: 11.5, weight: 800 });
+        });
+        const max = Math.max(1, ...M.rows.map(r => Math.max(...r.vals)));
+        M.rows.forEach((r, k) => {
+          const pts = r.vals.map((v, i) => `${(cx + R * (v / max) * Math.cos(ang(i))).toFixed(1)},${(cy + R * (v / max) * Math.sin(ang(i))).toFixed(1)}`).join('L');
+          push('paths', { d: `M${pts}Z`, fill: this.col(k), op: 0.16 });
+          push('paths', { d: `M${pts}Z`, stroke: this.col(k), sw: 2.5 });
+        });
+        M.rows.forEach((r, k) => {
+          push('rects', { x: 14, y: 16 + k * 19, w: 11, h: 11, fill: this.col(k) });
+          text({ x: 31, y: 26 + k * 19, text: r.label, size: 11.5, weight: 600 });
+        });
+      }
+      if (id === 'parallel') {
+        const padL = 70, padR = 30, top = 34, bot = H - 44, n = M.axes.length || 1;
+        const ax = i => padL + (i / Math.max(1, n - 1)) * (W - padL - padR);
+        M.axes.forEach((a, i) => {
+          const mx = Math.max(1, ...M.rows.map(r => r.vals[i]));
+          out.lines.push({ x1: ax(i), y1: top, x2: ax(i), y2: bot, stroke: INK, sw: 1.5, op: 1 });
+          text({ x: ax(i), y: top - 12, text: a, anchor: 'middle', size: 11.5, weight: 800 });
+          text({ x: ax(i) + 6, y: top + 10, text: String(mx), anchor: 'start', size: 9.5, fill: MUTED });
+          text({ x: ax(i) + 6, y: bot - 2, text: '0', anchor: 'start', size: 9.5, fill: MUTED });
+        });
+        M.rows.forEach((r, k) => {
+          const pts = r.vals.map((v, i) => {
+            const mx = Math.max(1, ...M.rows.map(rr => rr.vals[i]));
+            return `${ax(i).toFixed(1)},${(bot - (v / mx) * (bot - top)).toFixed(1)}`;
+          }).join('L');
+          push('paths', { d: `M${pts}`, stroke: this.col(k), sw: 2.5, op: 0.9 });
+          if (lab) text({ x: padL - 10, y: bot - (r.vals[0] / Math.max(1, ...M.rows.map(rr => rr.vals[0]))) * (bot - top) + 4, text: r.label, anchor: 'end', size: 11, weight: 600, fill: this.col(k) });
+        });
+      }
+      if (id === 'marimekko') {
+        const padL = 16, padR = 16, top = 26, bot = H - 34;
+        const totals = M.rows.map(r => r.vals.reduce((a, b) => a + b, 0) || 1);
+        const grand = totals.reduce((a, b) => a + b, 0) || 1;
+        let x = padL;
+        M.rows.forEach((r, k) => {
+          const cw = (totals[k] / grand) * (W - padL - padR) - 4;
+          let y = top;
+          r.vals.forEach((v, i) => {
+            const hh = (v / totals[k]) * (bot - top);
+            push('rects', { x, y, w: cw, h: hh - 2, fill: this.col(i), op: 0.9 });
+            if (lab && hh > 22 && cw > 54) text({ x: x + 8, y: y + 18, text: M.axes[i] + (showV ? ' ' + Math.round((v / totals[k]) * 100) + '%' : ''), size: 10.5, weight: 700, fill: i < 2 ? '#f3f2f2' : INK });
+            y += hh;
+          });
+          text({ x, y: bot + 16, text: r.label, size: 11.5, weight: 800 });
+          text({ x, y: top - 10, text: this.fmt(totals[k]), size: 10, fill: MUTED });
+          x += cw + 4;
+        });
+      }
+    }
+    const A = this.state.fillAlpha === undefined ? 1 : this.state.fillAlpha;
+    if (A < 1) ['paths', 'rects', 'circles'].forEach(k => out[k].forEach(s => { if (s.fill && s.fill !== 'none') s.op = +(s.op * A).toFixed(3); }));
+    return out;
+  }
+
+  // ── renderVals ───────────────────────────────────────────
+  renderVals() {
+    const st = this.state, S = p => () => this.setState(p);
+    const spec = this.spec() || { id: 'sankey', name: 'Sankey', shape: 'flow' };
+    const locked = spec.shape === 'geo' || spec.shape === 'obs';
+    const ch = locked ? { vb: '0 0 760 430', paths: [], rects: [], circles: [], lines: [], labels: [] } : this.build();
+    const sheetKey = spec.shape === 'matrix' ? 'segments' : 'flows';
+    const activeSheet = st.sheets[st.sheet] ? st.sheet : 'flows';
+    const sh = st.sheets[activeSheet];
+    const pal = this.palettesDef[this.paletteId];
+
+    const tabBtn = on => `background:${on ? 'var(--color-bg)' : 'transparent'};border:0;border-bottom:${on ? '3px solid #ec3013' : '3px solid transparent'};padding:8px 14px;font-family:var(--font-heading);font-weight:800;font-size:13px;cursor:pointer;color:${on ? '#201e1d' : '#7d7979'}`;
+    const segBtn = on => `background:${on ? '#201e1d' : 'transparent'};color:${on ? '#f3f2f2' : '#201e1d'};border:0;padding:6px 12px;font-family:var(--font-heading);font-weight:800;font-size:11.5px;cursor:pointer`;
+    const chipBtn = on => `background:${on ? '#ec3013' : 'transparent'};color:${on ? '#f3f2f2' : '#201e1d'};border:1px solid ${on ? '#ec3013' : 'var(--color-divider)'};padding:5px 10px;font-size:12px;font-family:var(--font-heading);font-weight:800;cursor:pointer`;
+
+    const isSplit = this.shell === 'split';
+
+    const mapFields = [];
+    if (spec.shape === 'flow') {
+      const opts = st.sheets.flows.cols.map((c, i) => ({ value: String(i), label: c }));
+      [['s', 'Source node', 'Where each unit of volume starts'], ['t', 'Target node', 'Where it lands — repeated names chain into stages'], ['v', 'Value', 'Numeric weight; drives ribbon thickness and area']].forEach(([k, label, help]) => {
+        mapFields.push({ label, help, req: '*', single: true, multi: false, value: String(st.mapFlow[k]), options: opts,
+          onChange: e => this.setState({ mapFlow: Object.assign({}, st.mapFlow, { [k]: +e.target.value }) }) });
+      });
+    } else if (spec.shape === 'matrix') {
+      mapFields.push({ label: 'Series label', help: 'One line, spoke set or column per row', req: '*', single: true, multi: false,
+        value: String(st.mapMatrix.label), options: st.sheets.segments.cols.map((c, i) => ({ value: String(i), label: c })),
+        onChange: e => this.setState({ mapMatrix: Object.assign({}, st.mapMatrix, { label: +e.target.value }) }) });
+      mapFields.push({ label: 'Measures', help: 'Pick 3 or more numeric columns — each becomes an axis', req: '*', single: false, multi: true,
+        chips: st.sheets.segments.cols.map((c, i) => {
+          const on = st.mapMatrix.measures.indexOf(i) > -1;
+          return { label: c, style: chipBtn(on), onClick: () => {
+            const m = st.mapMatrix.measures.slice(), k = m.indexOf(i);
+            if (k > -1) m.splice(k, 1); else m.push(i);
+            m.sort((a, b) => a - b);
+            this.setState({ mapMatrix: Object.assign({}, st.mapMatrix, { measures: m }) });
+          } };
+        }) });
+    } else {
+      mapFields.push({ label: spec.shape === 'geo' ? 'Latitude / Longitude' : 'Observation column', req: '*', single: false, multi: true, chips: [],
+        help: spec.shape === 'geo' ? 'No column in this sheet is typed as Geo. Add lat/lon or a place-name column.' : 'Needs one row per observation, not pre-aggregated totals.' });
+    }
+
+    const mkIcon = id => {
+      const a = '#ec3013', k = '#201e1d';
+      const I = {
+        sankey: [{ d: 'M4 4h5v10H4z', fill: k }, { d: 'M9 6C22 6 26 20 51 20', stroke: a, sw: 5, fill: 'none' }, { d: 'M9 11C22 11 26 28 51 28', stroke: k, sw: 3, fill: 'none' }, { d: 'M51 16h5v18h-5z', fill: k }],
+        sunburst: [{ d: 'M30 17m-6 0a6 6 0 1 0 12 0a6 6 0 1 0 -12 0', fill: k }, { d: 'M30 17 L30 3 A14 14 0 0 1 42 24 Z', fill: a }, { d: 'M30 17 L42 24 A14 14 0 0 1 18 24 Z', fill: a, stroke: '#f3f2f2', sw: 1 }],
+        treemap: [{ d: 'M4 4h26v16H4z', fill: a }, { d: 'M31 4h25v9H31z', fill: k }, { d: 'M31 14h25v6H31z', fill: k }, { d: 'M4 21h52v9H4z', fill: a, stroke: 'none' }],
+        pack: [{ d: 'M18 17m-13 0a13 13 0 1 0 26 0a13 13 0 1 0 -26 0', fill: a }, { d: 'M44 17m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0', fill: k }],
+        chord: [{ d: 'M30 17m-14 0a14 14 0 1 0 28 0a14 14 0 1 0 -28 0', fill: 'none', stroke: k, sw: 3 }, { d: 'M18 9 Q30 17 42 25', stroke: a, sw: 3, fill: 'none' }, { d: 'M20 26 Q30 17 40 8', stroke: a, sw: 2, fill: 'none' }],
+        network: [{ d: 'M12 8 L44 26 M12 8 L46 10 M44 26 L46 10', stroke: k, sw: 1.5, fill: 'none' }, { d: 'M12 8m-5 0a5 5 0 1 0 10 0a5 5 0 1 0 -10 0', fill: a }, { d: 'M44 26m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0', fill: k }, { d: 'M46 10m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0', fill: k }],
+        parallel: [{ d: 'M10 3v28M30 3v28M50 3v28', stroke: k, sw: 1.5 }, { d: 'M10 24 L30 8 L50 18', stroke: a, sw: 2.5, fill: 'none' }, { d: 'M10 12 L30 22 L50 6', stroke: k, sw: 2, fill: 'none' }],
+        violin: [{ d: 'M20 3 C30 8 30 14 20 17 C30 20 30 28 20 31 C10 28 10 20 20 17 C10 14 10 8 20 3Z', fill: a }, { d: 'M44 6 C50 11 50 15 44 17 C50 19 50 26 44 29 C38 26 38 19 44 17 C38 15 38 11 44 6Z', fill: k }],
+        marimekko: [{ d: 'M4 4h20v12H4z', fill: a }, { d: 'M4 17h20v13H4z', fill: k }, { d: 'M25 4h14v20H25z', fill: a }, { d: 'M25 25h14v5H25z', fill: k }, { d: 'M40 4h16v8H40z', fill: a }, { d: 'M40 13h16v17H40z', fill: k }],
+        radar: [{ d: 'M30 3 L52 17 L43 31 L17 31 L8 17Z', fill: 'none', stroke: k, sw: 1.2 }, { d: 'M30 9 L45 18 L38 27 L22 25 L17 16Z', fill: a, stroke: 'none' }],
+        symbolmap: [{ d: 'M4 8h52v20H4z', fill: 'none', stroke: k, sw: 1.2 }, { d: 'M18 18m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0', fill: a }, { d: 'M42 20m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0', fill: k }],
+        connmap: [{ d: 'M4 8h52v20H4z', fill: 'none', stroke: k, sw: 1.2 }, { d: 'M12 24 Q30 2 48 22', stroke: a, sw: 2, fill: 'none' }, { d: 'M12 24m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0', fill: k }, { d: 'M48 22m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0', fill: k }],
+      };
+      return (I[id] || []).map(p => Object.assign({ fill: 'none', stroke: 'none', sw: 0 }, p));
+    };
+
+    const gridColOf = (i) => ({
+      name: sh.cols[i], type: sh.types[i] || 'text',
+      rename: e => { const s = JSON.parse(JSON.stringify(st.sheets)); s[activeSheet].cols[i] = e.target.value; this.setState({ sheets: s }); },
+      retype: e => { const s = JSON.parse(JSON.stringify(st.sheets)); s[activeSheet].types[i] = e.target.value; this.setState({ sheets: s }); },
+    });
+
+    const stepMetaText = ['Step 1 of 5 · autosaved to your workspace', 'Step 2 of 5 · 12 types, 2 need extra columns', 'Step 3 of 5 · encodings validate as you pick', 'Step 4 of 5 · applies to preview and viewer', 'Step 5 of 5 · publishing writes version ' + 'v7'][st.step];
+
+    return {
+      showAuth: !this.signedIn,
+      showApp: this.signedIn,
+      showDash: this.signedIn && st.view === 'dash',
+      showWizard: this.signedIn && st.view === 'wizard',
+      signIn: () => this.setState({ signedIn: true, view: 'dash' }),
+      goHome: S({ view: 'dash' }),
+      newChart: () => this.setState({ view: 'wizard', step: 0 }),
+      noop: () => {},
+      goData: () => this.setState({ step: 0 }),
+
+      shellAStyle: segBtn(isSplit), shellBStyle: segBtn(!isSplit),
+      setShellA: S({ shell: 'split' }), setShellB: S({ shell: 'canvas' }),
+
+      saved: [
+        { name: 'Acquisition → activation flow', type: 'Sankey', state: 'Published', meta: 'Edited 2h ago · v7', bars: [70, 40, 90, 55, 30] },
+        { name: 'Segment profile, FY26', type: 'Radar', state: 'Published', meta: 'Edited yesterday · v3', bars: [50, 80, 35, 65, 45] },
+        { name: 'Revenue mix by region', type: 'Marimekko', state: 'Draft', meta: 'Edited 3d ago', bars: [90, 60, 75, 25, 55] },
+        { name: 'Partner referral network', type: 'Chord', state: 'Published', meta: 'Edited last week · v2', bars: [35, 70, 50, 85, 40] },
+        { name: 'Cost tree, engineering', type: 'Treemap', state: 'Draft', meta: 'Edited last week', bars: [80, 45, 60, 30, 70] },
+        { name: 'Support load by market', type: 'Sunburst', state: 'Published', meta: 'Edited 12 Aug · v5', bars: [45, 55, 85, 40, 60] },
+      ].map((c, i) => ({
+        name: c.name, type: c.type, state: c.state, meta: c.meta,
+        stateClass: c.state === 'Published' ? 'tag tag-accent' : 'tag tag-neutral',
+        open: () => this.setState({ view: 'wizard', step: 0 }),
+        bars: c.bars.map((b, j) => ({ style: `flex:1;height:${b}%;background:${this.palettesDef[this.paletteId].colors[(i + j) % 8]};opacity:${0.35 + 0.1 * j}` })),
+      })),
+
+      steps: this.stepDefs.map((s, i) => {
+        const on = i === st.step, done = i < st.step;
+        return {
+          n: String(i + 1), label: s.label, hint: s.hint,
+          onClick: () => this.setState({ step: i }),
+          style: `display:flex;align-items:center;gap:10px;padding:${isSplit ? '10px 18px' : '12px 16px'};background:${on ? 'var(--color-surface)' : 'transparent'};border:0;${isSplit ? 'border-right:1px solid var(--color-divider)' : 'border-bottom:1px solid var(--color-divider)'};cursor:pointer;text-align:left;${isSplit ? '' : 'width:100%;'}box-shadow:${on ? (isSplit ? 'inset 0 -3px 0 #ec3013' : 'inset 3px 0 0 #ec3013') : 'none'}`,
+          numStyle: `width:22px;height:22px;flex:none;display:flex;align-items:center;justify-content:center;font-family:var(--font-heading);font-weight:800;font-size:11px;background:${on ? '#ec3013' : (done ? '#201e1d' : 'transparent')};color:${on || done ? '#f3f2f2' : '#7d7979'};border:1px solid ${on ? '#ec3013' : (done ? '#201e1d' : 'var(--color-divider)')}`,
+        };
+      }),
+
+      shellWrapStyle: isSplit ? 'display:block' : 'display:flex;flex-wrap:wrap;align-items:stretch;min-height:calc(100vh - 60px)',
+      railStyle: isSplit
+        ? 'display:flex;flex-wrap:wrap;border-bottom:2px solid var(--color-divider);background:var(--color-bg);position:sticky;top:60px;z-index:15'
+        : 'flex:0 0 210px;display:flex;flex-direction:column;border-right:2px solid var(--color-divider);align-content:flex-start;min-width:180px',
+      bodyStyle: isSplit
+        ? 'display:flex;flex-wrap:wrap;align-items:stretch;min-height:calc(100vh - 122px)'
+        : 'flex:1 1 520px;display:flex;flex-wrap:wrap-reverse;align-items:stretch;min-width:0',
+      workStyle: isSplit
+        ? 'flex:1 1 460px;min-width:0;display:flex;flex-direction:column;border-right:2px solid var(--color-divider)'
+        : 'flex:1 1 380px;min-width:0;display:flex;flex-direction:column;border-right:2px solid var(--color-divider);max-width:640px',
+      previewStyle: isSplit
+        ? 'flex:1 1 420px;min-width:0;background:var(--color-surface);display:flex;flex-direction:column;position:sticky;top:122px;align-self:flex-start;max-height:calc(100vh - 122px)'
+        : 'flex:2 1 480px;min-width:0;background:var(--color-surface);display:flex;flex-direction:column',
+      canvasStyle: `flex:1;overflow:auto;padding:${isSplit ? '20px' : '32px'};display:flex;align-items:flex-start;justify-content:center;background:${this.groundBg}`,
+
+      isData: st.step === 0, isChart: st.step === 1, isMap: st.step === 2, isStyle: st.step === 3, isPublish: st.step === 4,
+      atFirst: st.step === 0,
+      back: () => this.setState({ step: Math.max(0, st.step - 1) }),
+      next: () => this.setState({ step: Math.min(4, st.step + 1) }),
+      nextLabel: ['Choose a chart →', 'Map the columns →', 'Style it →', 'Publish →', 'Copy link & finish'][st.step],
+      stepMeta: stepMetaText,
+
+      sheetTabs: Object.keys(st.sheets).map(k => ({
+        name: st.sheets[k].name, meta: `${st.sheets[k].rows.length}×${st.sheets[k].cols.length}`,
+        style: tabBtn(k === activeSheet), onClick: () => this.setState({ sheet: k }),
+      })),
+      gridCols: sh.cols.map((_, i) => gridColOf(i)),
+      gridRows: sh.rows.map((r, ri) => ({
+        n: String(ri + 1),
+        remove: () => { const s = JSON.parse(JSON.stringify(st.sheets)); s[activeSheet].rows.splice(ri, 1); this.setState({ sheets: s }); },
+        cells: sh.cols.map((_, ci) => ({
+          v: r[ci] === undefined ? '' : String(r[ci]),
+          style: `width:100%;border:0;background:transparent;padding:7px 10px;font-size:13px;font-family:${(sh.types[ci] || 'text') === 'number' ? 'ui-monospace,monospace' : 'var(--font-body)'};text-align:${(sh.types[ci] || 'text') === 'number' ? 'right' : 'left'};font-variant-numeric:tabular-nums;color:#201e1d`,
+          onChange: e => { const s = JSON.parse(JSON.stringify(st.sheets)); s[activeSheet].rows[ri][ci] = e.target.value; this.setState({ sheets: s }); },
+        })),
+      })),
+      addRow: () => { const s = JSON.parse(JSON.stringify(st.sheets)); s[activeSheet].rows.push(s[activeSheet].cols.map(() => '')); this.setState({ sheets: s }); },
+      addCol: () => { const s = JSON.parse(JSON.stringify(st.sheets)); const t = s[activeSheet]; t.cols.push('Column ' + (t.cols.length + 1)); t.types.push('number'); t.rows.forEach(r => r.push('')); this.setState({ sheets: s }); },
+      gridSummary: `${sh.rows.length} rows · ${sh.cols.length} columns · ${sheetKey === activeSheet ? 'feeding the chart' : 'not used by ' + spec.name}`,
+      pasteOpen: st.pasteOpen, pasteNote: st.pasteNote,
+      openPaste: () => this.setState({ pasteOpen: !st.pasteOpen, pasteNote: '' }),
+      onPasteText: e => this.setState({ pasteText: e.target.value }),
+      applyPaste: () => {
+        const lines = (st.pasteText || '').trim().split(/\n/).filter(Boolean).map(l => l.split('\t'));
+        if (lines.length < 2) return this.setState({ pasteNote: 'Need a header row and at least one data row.' });
+        const s = JSON.parse(JSON.stringify(st.sheets));
+        s[activeSheet].cols = lines[0];
+        s[activeSheet].types = lines[0].map((_, i) => (isFinite(parseFloat(lines[1][i])) ? 'number' : 'text'));
+        s[activeSheet].rows = lines.slice(1);
+        this.setState({ sheets: s, pasteOpen: false, pasteText: '', pasteNote: '' });
+      },
+
+      chartGroups: this.charts.map(g => ({
+        name: g.g,
+        items: g.items.map(c => {
+          const on = c.id === this.chartId, dis = c.shape === 'geo' || c.shape === 'obs';
+          return {
+            name: c.name, note: dis ? (c.shape === 'geo' ? 'Needs lat/lon columns' : 'Needs raw observations') : c.note,
+            icon: mkIcon(c.id),
+            onClick: () => this.setState({ chart: c.id, sheet: c.shape === 'matrix' ? 'segments' : 'flows' }),
+            style: `text-align:left;background:${on ? 'var(--color-surface)' : 'transparent'};border:${on ? '2px solid #ec3013' : '1px solid var(--color-divider)'};padding:14px;cursor:pointer;opacity:${dis ? 0.55 : 1};display:block;width:100%`,
+          };
+        }),
+      })),
+
+      chartName: spec.name,
+      mapIntro: spec.shape === 'flow'
+        ? 'A flow chart needs three columns: two node columns and a numeric weight. Repeat a target name as a source to chain another stage.'
+        : spec.shape === 'matrix'
+        ? 'A comparison chart needs one label column and three or more numeric measures. Each measure becomes an axis or a band.'
+        : 'This type needs columns the current sheets do not carry yet.',
+      mapFields,
+      validColor: locked ? '#ec3013' : '#201e1d',
+      validNote: locked
+        ? `${spec.name} can't render from these sheets yet — add the columns it needs, or pick another type.`
+        : spec.shape === 'flow'
+        ? `${this.links().length} valid links found. Rows with a blank node or a non-numeric value are skipped, not deleted.`
+        : `${this.matrix().rows.length} series × ${this.matrix().axes.length} measures. Three measures minimum for a readable shape.`,
+
+      title: st.title, subtitle: st.subtitle,
+      onTitle: e => this.setState({ title: e.target.value }),
+      onSubtitle: e => this.setState({ subtitle: e.target.value }),
+      palettes: Object.keys(this.palettesDef).map(k => ({
+        name: this.palettesDef[k].name, note: this.palettesDef[k].note,
+        onClick: () => this.setState({ palette: k }),
+        style: `display:flex;align-items:center;gap:10px;background:transparent;border:${k === this.paletteId ? '2px solid #ec3013' : '1px solid var(--color-divider)'};padding:8px 12px;cursor:pointer`,
+        swatches: (k === 'custom' ? (st.customColors || []) : this.palettesDef[k].colors).slice(0, 6).map(c => ({ style: `width:16px;height:16px;display:block;background:${c}` })),
+      })),
+      isCustom: this.paletteId === 'custom',
+      customSwatches: (st.customColors || []).map((c, i) => ({
+        value: c,
+        onChange: e => { const a = (st.customColors || []).slice(); a[i] = e.target.value; this.setState({ customColors: a }); },
+        remove: () => { const a = (st.customColors || []).slice(); if (a.length > 1) { a.splice(i, 1); this.setState({ customColors: a }); } },
+      })),
+      addSwatch: () => this.setState({ customColors: (st.customColors || []).concat(['#605d5d']) }),
+      alpha: st.fillAlpha, alphaPct: Math.round(st.fillAlpha * 100) + '%',
+      onAlpha: e => this.setState({ fillAlpha: +e.target.value }),
+      grounds: [['light', 'Light ground'], ['dark', 'Dark ground']].map(([k, label]) => ({
+        label, style: segBtn(st.ground === k), onClick: () => this.setState({ ground: k }),
+      })),
+      previewTitleStyle: `font-family:var(--font-heading);font-weight:800;font-size:19px;line-height:1.15;color:${this.ink}`,
+      previewSubStyle: `font-size:12px;color:${this.muted};margin-top:3px`,
+      previewRuleStyle: `height:2px;border:0;margin:12px 0;background:${this.dark ? '#605d5d' : 'var(--color-divider)'}`,
+      previewMetaStyle: `display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:11px;color:${this.muted}`,
+      slideCanvasStyle: `flex:1;min-height:0;border:1px solid #d7d3d3;position:relative;overflow:hidden;background:${this.groundBg}`,
+      toggles: [
+        { label: 'Show labels', on: st.labels, onChange: () => this.setState({ labels: !st.labels }) },
+        { label: 'Show values', on: st.values, onChange: () => this.setState({ values: !st.values }) },
+        { label: 'Sort by size', on: st.sortDesc, onChange: () => this.setState({ sortDesc: !st.sortDesc }) },
+      ],
+
+      url: 'https://graphos.app/c/8f2a1d4e?v=7',
+      version: 'v7', updated: 'just now', access: st.access,
+      copyLabel: st.copied ? '✓ Copied' : 'Copy link',
+      copy: () => { this.setState({ copied: true }); setTimeout(() => this.setState({ copied: false }), 1600); },
+      accessOpts: ['Anyone with link', 'My workspace', 'Only me'].map(a => ({
+        label: a, style: segBtn(a === st.access), onClick: () => this.setState({ access: a }),
+      })),
+      embedOpts: [
+        { id: 'viewer', name: 'Viewer link', badge: 'Recommended', note: 'A still of the chart sits on the slide; clicking it in Slide Show opens the live, interactive viewer in the browser. Nothing to install.' },
+        { id: 'snapshot', name: 'Refreshing still', badge: 'Offline-safe', note: 'A PNG re-exported on every publish. Drop it in and re-paste after each version — no network needed in the room.' },
+        { id: 'iframe', name: 'Web-page embed', badge: 'Web decks', note: 'An iframe snippet for Google Slides add-ons, Notion, Confluence or a web-hosted deck.' },
+      ].map(e => ({
+        name: e.name, note: e.note, badge: e.badge,
+        onClick: () => this.setState({ embed: e.id }),
+        style: `text-align:left;background:${e.id === st.embed ? 'var(--color-surface)' : 'transparent'};border:${e.id === st.embed ? '2px solid #ec3013' : '1px solid var(--color-divider)'};padding:14px;cursor:pointer;display:block;width:100%`,
+        badgeStyle: `font-size:9.5px;letter-spacing:0.08em;text-transform:uppercase;font-family:var(--font-heading);font-weight:800;padding:2px 6px;background:${e.id === st.embed ? '#ec3013' : 'var(--color-neutral-300)'};color:${e.id === st.embed ? '#f3f2f2' : '#444141'};white-space:nowrap`,
+      })),
+      pptSteps: [
+        { n: '1', t: 'Download the slide PNG and place it on the slide.' },
+        { n: '2', t: 'Select the image → Insert → Link, and paste the viewer URL.' },
+        { n: '3', t: 'In Slide Show, one click opens the live chart in the default browser.' },
+        { n: '4', t: 'Republish any time — the link keeps working, the data is current.' },
+      ],
+
+      chartLocked: locked, chartReady: !locked,
+      lockTitle: spec.shape === 'geo' ? 'No geography in this sheet' : 'No observation-level rows',
+      lockNote: spec.shape === 'geo'
+        ? 'A ' + spec.name.toLowerCase() + ' needs latitude and longitude, or a place column we can geocode. Add a column and set its type to Geo.'
+        : 'A violin plot draws a distribution, so it needs one row per observation rather than the aggregated totals in this sheet.',
+      vb: ch.vb, shapePaths: ch.paths, shapeRects: ch.rects, shapeCircles: ch.circles, shapeLines: ch.lines, shapeLabels: ch.labels,
+      syncNote: locked ? 'waiting on data' : 'synced with sheet',
+      rowNote: spec.shape === 'matrix' ? `${this.matrix().rows.length} series` : `${this.links().length} links`,
+    };
+  }
+}
+</script>
+</body>
+</html>
