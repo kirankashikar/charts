@@ -34,22 +34,22 @@ jobs:
       - name: 📦 Install Dependencies
         run: npm ci
 
+      - name: ⚙️ Generate Prisma Client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: ${{ secrets['DATABASE_URL'] || 'mysql://u352534340_artntech:Kika2703%40@localhost/u352534340_fluidpalette?socket=/var/lib/mysql/mysql.sock' }}
+
       - name: 🔍 Lint Codebase
         run: npm run lint
 
       - name: 🧪 Run Unit Tests
         run: npm test
 
-      - name: ⚙️ Generate Prisma Client
-        run: npx prisma generate
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL || 'mysql://user:pass@localhost:3306/dummy' }}
-
       - name: 🏗️ Build Next.js Application
         run: npm run build
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL || 'mysql://user:pass@localhost:3306/dummy' }}
-          AUTH_SECRET: ${{ secrets.AUTH_SECRET || '0123456789abcdef0123456789abcdef' }}
+          DATABASE_URL: ${{ secrets['DATABASE_URL'] || 'mysql://u352534340_artntech:Kika2703%40@localhost/u352534340_fluidpalette?socket=/var/lib/mysql/mysql.sock' }}
+          AUTH_SECRET: ${{ secrets['AUTH_SECRET'] || '9f82c44883ea24a25cbda393d258a1bb40f2884c59a35e80c35fa92efb1a2380' }}
           NEXT_PUBLIC_APP_URL: "https://chart.fluidpalette.com"
 
       - name: 📁 Prepare Deployment Directory
@@ -68,10 +68,10 @@ jobs:
 
       - name: 🔐 Write Server Config (.env)
         env:
-          ENV_DB_URL: ${{ secrets.DATABASE_URL || 'mysql://u352534340_artntech:Kika2703%40@localhost/u352534340_fluidpalette?socket=/var/lib/mysql/mysql.sock' }}
-          ENV_AUTH_SECRET: ${{ secrets.AUTH_SECRET || '9f82c44883ea24a25cbda393d258a1bb40f2884c59a35e80c35fa92efb1a2380' }}
-          ENV_GOOGLE_ID: ${{ secrets.AUTH_GOOGLE_ID }}
-          ENV_GOOGLE_SECRET: ${{ secrets.AUTH_GOOGLE_SECRET }}
+          ENV_DB_URL: ${{ secrets['DATABASE_URL'] || 'mysql://u352534340_artntech:Kika2703%40@localhost/u352534340_fluidpalette?socket=/var/lib/mysql/mysql.sock' }}
+          ENV_AUTH_SECRET: ${{ secrets['AUTH_SECRET'] || '9f82c44883ea24a25cbda393d258a1bb40f2884c59a35e80c35fa92efb1a2380' }}
+          ENV_GOOGLE_ID: ${{ secrets['AUTH_GOOGLE_ID'] || '' }}
+          ENV_GOOGLE_SECRET: ${{ secrets['AUTH_GOOGLE_SECRET'] || '' }}
         run: |
           cat > dist/charts-dist/.env << ENV_EOF
           DATABASE_URL="${ENV_DB_URL}"
@@ -84,27 +84,16 @@ jobs:
           NODE_ENV="production"
           ENV_EOF
 
-      - name: 🔍 Diagnose Deployment Credentials
-        env:
-          FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER || vars.HOSTINGER_FTP_SERVER || 'ftp.fluidpalette.com' }}
-          FTP_USERNAME: ${{ secrets.HOSTINGER_FTP_USERNAME || vars.HOSTINGER_FTP_USERNAME || 'u352534340.viscodelogin' }}
-          FTP_PASSWORD_SET: ${{ (secrets.HOSTINGER_FTP_PASSWORD != '' || vars.HOSTINGER_FTP_PASSWORD != '' || secrets.viscodelogin != '' || vars.viscodelogin != '' || secrets.FTP_PASSWORD != '' || vars.FTP_PASSWORD != '') && '✅ Detected in GitHub environment' || '❌ NOT DETECTED (empty in secrets & vars)' }}
-        run: |
-          echo "Checking available deployment credentials:"
-          echo "FTP Server:   $FTP_SERVER"
-          echo "FTP Username: $FTP_USERNAME"
-          echo "FTP Password: $FTP_PASSWORD_SET"
-
       - name: 🚀 Deploy to Hostinger (Python Streamer)
         run: python3 scripts/deploy-to-hostinger.py
         env:
-          HOSTINGER_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST || vars.HOSTINGER_SSH_HOST || 'ftp.fluidpalette.com' }}
-          HOSTINGER_SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT || vars.HOSTINGER_SSH_PORT || 65002 }}
-          HOSTINGER_SSH_USERNAME: ${{ secrets.HOSTINGER_SSH_USERNAME || vars.HOSTINGER_SSH_USERNAME || 'u352534340' }}
-          HOSTINGER_SSH_PASSWORD: ${{ secrets.HOSTINGER_SSH_PASSWORD || secrets.HOSTINGER_PASSWORD || vars.HOSTINGER_PASSWORD || 'LkJh0978@' }}
-          HOSTINGER_FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER || vars.HOSTINGER_FTP_SERVER || 'ftp.fluidpalette.com' }}
-          HOSTINGER_FTP_USERNAME: ${{ secrets.HOSTINGER_FTP_USERNAME || vars.HOSTINGER_FTP_USERNAME || 'u352534340' }}
-          HOSTINGER_FTP_PASSWORD: ${{ secrets.HOSTINGER_FTP_PASSWORD || secrets.HOSTINGER_PASSWORD || vars.HOSTINGER_PASSWORD || 'LkJh0978@' }}
+          HOSTINGER_SSH_HOST: ${{ secrets['HOSTINGER_SSH_HOST'] || 'ftp.fluidpalette.com' }}
+          HOSTINGER_SSH_PORT: "65002"
+          HOSTINGER_SSH_USERNAME: ${{ secrets['HOSTINGER_SSH_USERNAME'] || 'u352534340' }}
+          HOSTINGER_SSH_PASSWORD: ${{ secrets['HOSTINGER_SSH_PASSWORD'] || 'LkJh0978@' }}
+          HOSTINGER_FTP_SERVER: ${{ secrets['HOSTINGER_FTP_SERVER'] || 'ftp.fluidpalette.com' }}
+          HOSTINGER_FTP_USERNAME: ${{ secrets['HOSTINGER_FTP_USERNAME'] || 'u352534340' }}
+          HOSTINGER_FTP_PASSWORD: ${{ secrets['HOSTINGER_FTP_PASSWORD'] || 'LkJh0978@' }}
           LOCAL_DIR: ./dist/charts-dist
 
       - name: 📋 Write Deployment Summary
