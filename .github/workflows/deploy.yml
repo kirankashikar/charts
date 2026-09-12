@@ -81,16 +81,23 @@ jobs:
           NODE_ENV="production"
           ENV_EOF
 
+      - name: 🔍 Diagnose Deployment Credentials
+        run: |
+          echo "Checking available deployment credentials:"
+          echo "FTP Server:   ${{ secrets.HOSTINGER_FTP_SERVER || vars.HOSTINGER_FTP_SERVER || 'ftp.fluidpalette.com' }}"
+          echo "FTP Username: ${{ secrets.HOSTINGER_FTP_USERNAME || vars.HOSTINGER_FTP_USERNAME || 'u352534340.viscodelogin' }}"
+          echo "FTP Password: ${{ (secrets.HOSTINGER_FTP_PASSWORD != '' || vars.HOSTINGER_FTP_PASSWORD != '' || secrets.viscodelogin != '' || vars.viscodelogin != '' || secrets.FTP_PASSWORD != '' || vars.FTP_PASSWORD != '') && '✅ Detected in GitHub environment' || '❌ NOT DETECTED (empty in secrets & vars)' }}"
+
       - name: 🚀 Deploy to Hostinger (Python Streamer)
         run: python3 scripts/deploy-to-hostinger.py
         env:
-          HOSTINGER_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST || secrets.SSH_HOST }}
-          HOSTINGER_SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT || secrets.SSH_PORT || 65002 }}
-          HOSTINGER_SSH_USERNAME: ${{ secrets.HOSTINGER_SSH_USERNAME || secrets.SSH_USERNAME || secrets.SSH_USER }}
-          HOSTINGER_SSH_PASSWORD: ${{ secrets.HOSTINGER_SSH_PASSWORD || secrets.SSH_PASSWORD }}
-          HOSTINGER_FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER || secrets.FTP_SERVER || 'ftp.fluidpalette.com' }}
-          HOSTINGER_FTP_USERNAME: ${{ secrets.HOSTINGER_FTP_USERNAME || secrets.FTP_USERNAME || secrets.FTP_USER || 'u352534340.viscodelogin' }}
-          HOSTINGER_FTP_PASSWORD: ${{ secrets.HOSTINGER_FTP_PASSWORD || secrets.viscodelogin || secrets.FTP_PASSWORD || secrets.HOSTINGER_PASSWORD || secrets.FTP_PASS || secrets.PASSWORD }}
+          HOSTINGER_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST || vars.HOSTINGER_SSH_HOST || secrets.SSH_HOST || vars.SSH_HOST }}
+          HOSTINGER_SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT || vars.HOSTINGER_SSH_PORT || 65002 }}
+          HOSTINGER_SSH_USERNAME: ${{ secrets.HOSTINGER_SSH_USERNAME || vars.HOSTINGER_SSH_USERNAME || secrets.SSH_USERNAME || vars.SSH_USERNAME || secrets.SSH_USER || vars.SSH_USER }}
+          HOSTINGER_SSH_PASSWORD: ${{ secrets.HOSTINGER_SSH_PASSWORD || vars.HOSTINGER_SSH_PASSWORD || secrets.SSH_PASSWORD || vars.SSH_PASSWORD }}
+          HOSTINGER_FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER || vars.HOSTINGER_FTP_SERVER || secrets.FTP_SERVER || vars.FTP_SERVER || 'ftp.fluidpalette.com' }}
+          HOSTINGER_FTP_USERNAME: ${{ secrets.HOSTINGER_FTP_USERNAME || vars.HOSTINGER_FTP_USERNAME || secrets.FTP_USERNAME || vars.FTP_USERNAME || secrets.FTP_USER || vars.FTP_USER || 'u352534340.viscodelogin' }}
+          HOSTINGER_FTP_PASSWORD: ${{ secrets.HOSTINGER_FTP_PASSWORD || vars.HOSTINGER_FTP_PASSWORD || secrets.viscodelogin || vars.viscodelogin || secrets.FTP_PASSWORD || vars.FTP_PASSWORD || secrets.HOSTINGER_PASSWORD || vars.HOSTINGER_PASSWORD || secrets.FTP_PASS || vars.FTP_PASS || secrets.PASSWORD || vars.PASSWORD }}
           LOCAL_DIR: ./dist/charts-dist
 
       - name: 📋 Write Deployment Summary
