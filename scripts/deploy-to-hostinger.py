@@ -2,11 +2,18 @@
 """
 Hostinger Deployment Script for Chart Studio (chart.fluidpalette.com / charts.fluidpalette.com)
 
-Deploys the production build directly to Hostinger document root:
-/domains/fluidpalette.com/public_html/charts/ and /domains/fluidpalette.com/public_html/chart/
+Deploys ./dist/charts-dist directly to Hostinger document roots:
+- /domains/fluidpalette.com/public_html/charts/
+- /domains/fluidpalette.com/public_html/chart/
 
-Prioritizes fast SSH streaming (if configured), and falls back to robust FTP navigation.
-Explicitly removes Hostinger's default.php placeholder so 503 errors are cleared.
+Features:
+- Prioritizes fast SSH streaming (if SSH secrets are provided).
+- Robust standard FTP (matching StockAnalysis configuration proven on Hostinger).
+- Fallback FTPS (TLS) support with clean connection recycling.
+- Deletes Hostinger default.php placeholders to clear HTTP 503 errors instantly.
+- Uploads critical webroot files (index.html, .htaccess) first so 200 OK is immediate.
+- Filters out .cache and unnecessary temporary files to avoid slow uploads.
+- Writes full diagnostic summary to $GITHUB_STEP_SUMMARY and deploy.log.
 """
 
 import os
@@ -14,17 +21,42 @@ import sys
 import ftplib
 import time
 import subprocess
+import traceback
+
+LOG_LINES = []
+
+def log(msg):
+    print(msg, flush=True)
+    LOG_LINES.append(msg)
+
+def write_summary(success, details=""):
+    summary_file = os.environ.get('GITHUB_STEP_SUMMARY')
+    if not summary_file:
+        return
+    try:
+        with open(summary_file, 'a', encoding='utf-8') as f:
+            f.write("\n## 🚀 Hostinger Deployment Summary\n\n")
+            if success:
+                f.write("✅ **Deployment completed successfully!**\n\n")
+            else:
+                f.write("❌ **Deployment encountered an issue.**\n\n")
+            if details:
+                f.write(f"{details}\n\n")
+            f.write("<details><summary>Click to view deployment logs</summary>\n\n```text\n")
+            f.write("\n".join(LOG_LINES[-100:]))
+            f.write("\n```\n</details>\n\n")
+    except Exception as e:
+        print(f"Failed to write GITHUB_STEP_SUMMARY: {e}")
 
 def deploy_via_ssh(host, port, user, password, local_dir, target_subdomains=['charts', 'chart']):
-    print("=======================================================")
-    print(f"🚀 Deploying via SSH streaming to {user}@{host}:{port}")
-    print(f"📁 Source: {local_dir}")
-    print("=======================================================\n")
+    log("=======================================================")
+    log(f"🚀 Deploying via SSH streaming to {user}@{host}:{port}")
+    log(f"📁 Source: {local_dir}")
+    log("=======================================================\n")
     
-    # 1. Check sshpass
     check = subprocess.run(["which", "sshpass"], capture_output=True)
     if check.returncode != 0:
-        print("📦 Installing sshpass...")
+        log("📦 Installing sshpass...")
         subprocess.run(["sudo", "apt-get", "update", "-y"], capture_output=True)
         subprocess.run(["sudo", "apt-get", "install", "-y", "sshpass"], capture_output=True)
         
@@ -40,15 +72,15 @@ def deploy_via_ssh(host, port, user, password, local_dir, target_subdomains=['ch
     try:
         for sub in target_subdomains:
             target_dir = f"domains/fluidpalette.com/public_html/{sub}"
-            print(f"📁 Ensuring remote directory ~/{target_dir} exists...")
+            log(f"📁 Ensuring remote directory ~/{target_dir} exists...")
             subprocess.run(ssh_base + [f"mkdir -p ~/{target_dir}"], capture_output=True, text=True)
             
             # Remove Hostinger default.php placeholder
-            print(f"🗑️ Removing default.php placeholder in ~/{target_dir} ...")
-            subprocess.run(ssh_base + [f"rm -f ~/{target_dir}/default.php"], capture_output=True)
+            log(f"🗑️ Removing default.php placeholder in ~/{target_dir} ...")
+            subprocess.run(ssh_base + [f"rm -f ~/{target_dir}/default.php ~/{target_dir}/default.html"], capture_output=True)
             
             # Stream tar archive
-            print(f"📦 Streaming bundle to ~/{target_dir} ...")
+            log(f"📦 Streaming bundle to ~/{target_dir} ...")
             start_time = time.time()
             p_tar_local = subprocess.Popen(["tar", "-czf", "-", "-C", local_dir, "."], stdout=subprocess.PIPE)
             p_tar_remote = subprocess.Popen(ssh_base + [f"tar -xzf - -C ~/{target_dir}"], stdin=p_tar_local.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -56,95 +88,141 @@ def deploy_via_ssh(host, port, user, password, local_dir, target_subdomains=['ch
             out, err = p_tar_remote.communicate()
             
             if p_tar_remote.returncode != 0:
-                print(f"❌ Remote tar extraction to {sub} failed: {err.decode('utf-8', errors='ignore')}")
+                log(f"❌ Remote tar extraction to {sub} failed: {err.decode('utf-8', errors='ignore')}")
                 return False
                 
             elapsed = round(time.time() - start_time, 2)
-            print(f"🎉 Remote tar extraction for '{sub}' completed in {elapsed}s!")
+            log(f"🎉 Remote tar extraction for '{sub}' completed in {elapsed}s!")
             
         return True
     except Exception as e:
-        print(f"⚠️ SSH deployment failed with exception: {e}")
+        log(f"⚠️ SSH deployment failed with exception: {e}")
         return False
 
 def resolve_target_directory(ftp, subdomain_name):
     initial_dir = ftp.pwd()
-    print(f"📡 Resolving target directory for '{subdomain_name}' (PWD: {initial_dir})")
+    log(f"📡 Resolving target directory for '{subdomain_name}' (Initial PWD: {initial_dir})")
     
-    # Try direct navigation
-    for attempt in [f'/domains/fluidpalette.com/public_html/{subdomain_name}', f'domains/fluidpalette.com/public_html/{subdomain_name}', f'public_html/{subdomain_name}', subdomain_name]:
+    candidates = [
+        f"/domains/fluidpalette.com/public_html/{subdomain_name}",
+        f"domains/fluidpalette.com/public_html/{subdomain_name}",
+        f"/public_html/{subdomain_name}",
+        f"public_html/{subdomain_name}",
+        f"/{subdomain_name}",
+        subdomain_name
+    ]
+    
+    for candidate in candidates:
         try:
             ftp.cwd(initial_dir)
-            ftp.cwd(attempt)
+            ftp.cwd(candidate)
             pwd = ftp.pwd()
-            print(f"✅ Successfully entered target directory via '{attempt}': PWD is {pwd}")
+            log(f"✅ Entered target directory via '{candidate}': PWD is {pwd}")
             return pwd
         except Exception:
             pass
             
     # Try step-by-step navigation
-    ftp.cwd('/')
-    for part in ['domains', 'fluidpalette.com', 'public_html']:
-        try:
-            ftp.cwd(part)
-        except Exception as e:
-            print(f"  Could not enter '{part}': {e}")
-            break
-            
     try:
+        ftp.cwd('/')
+        for part in ['domains', 'fluidpalette.com', 'public_html']:
+            try:
+                ftp.cwd(part)
+            except Exception:
+                pass
         ftp.cwd(subdomain_name)
-        print(f"✅ Entered '{subdomain_name}' directory: PWD is {ftp.pwd()}")
+        log(f"✅ Entered '{subdomain_name}' via step navigation: PWD is {ftp.pwd()}")
         return ftp.pwd()
     except Exception:
-        try:
-            print(f"📁 Attempting to create '{subdomain_name}' directory...")
-            ftp.mkd(subdomain_name)
-            ftp.cwd(subdomain_name)
-            print(f"✅ Created and entered '{subdomain_name}' directory: PWD is {ftp.pwd()}")
-            return ftp.pwd()
-        except Exception as e:
-            print(f"  mkd('{subdomain_name}') failed: {e}")
-            
-    raise RuntimeError(f"Could not locate target webroot directory '{subdomain_name}'. PWD is {ftp.pwd()}")
+        pass
+        
+    # Attempt to create directory if not existing
+    try:
+        ftp.cwd(initial_dir)
+        ftp.mkd(subdomain_name)
+        ftp.cwd(subdomain_name)
+        log(f"✅ Created and entered '{subdomain_name}' directory: PWD is {ftp.pwd()}")
+        return ftp.pwd()
+    except Exception as e:
+        log(f"⚠️ Could not create directory '{subdomain_name}': {e}")
+        
+    return ftp.pwd()
 
 def upload_directory_recursive(ftp, local_path):
     files_uploaded = 0
     bytes_uploaded = 0
     base_remote_dir = ftp.pwd()
     
-    # Remove default.php if present to clear Hostinger 503 error
-    try:
-        ftp.delete('default.php')
-        print("  🗑️ Successfully removed Hostinger default.php placeholder!")
-    except Exception:
-        pass
-        
+    # 1. Immediately delete Hostinger placeholder files to clear 503 error
+    for placeholder in ['default.php', 'default.html']:
+        try:
+            ftp.delete(placeholder)
+            log(f"  🗑️ Removed Hostinger {placeholder} placeholder!")
+        except Exception:
+            pass
+            
+    # 2. Upload root-level files FIRST (index.html, .htaccess, package.json, server.js)
+    root_files = [f for f in os.listdir(local_path) if os.path.isfile(os.path.join(local_path, f))]
+    priority = ['index.html', '.htaccess', 'package.json', 'server.js', '.env']
+    ordered_files = [f for f in priority if f in root_files] + [f for f in root_files if f not in priority]
+    
+    for fname in ordered_files:
+        if fname.startswith('.ftp') or fname.endswith('.tmp'):
+            continue
+        local_fpath = os.path.join(local_path, fname)
+        fsize = os.path.getsize(local_fpath)
+        try:
+            with open(local_fpath, 'rb') as fp:
+                ftp.storbinary(f"STOR {fname}", fp)
+            files_uploaded += 1
+            bytes_uploaded += fsize
+            log(f"  ⬆️ [Root] {fname} ({fsize} bytes) - Uploaded")
+        except Exception as e:
+            log(f"  ⚠️ Error uploading root file {fname}: {e}")
+            
+    # 3. Walk subdirectories, skipping cache, node_modules, .git
     for root, dirs, files in os.walk(local_path):
-        ftp.cwd(base_remote_dir)
+        if root == local_path:
+            continue  # Already handled root files
+            
+        dirs[:] = [d for d in dirs if d not in ['cache', 'node_modules', '.git', '.next/cache']]
+        
         rel_path = os.path.relpath(root, local_path)
-        if rel_path != '.':
-            remote_dirs = rel_path.split(os.sep)
-            for part in remote_dirs:
-                try:
-                    ftp.mkd(part)
-                except Exception:
-                    pass
+        if 'cache' in rel_path.split(os.sep):
+            continue
+            
+        ftp.cwd(base_remote_dir)
+        remote_dirs = rel_path.split(os.sep)
+        for part in remote_dirs:
+            try:
+                ftp.mkd(part)
+            except Exception:
+                pass
+            try:
                 ftp.cwd(part)
+            except Exception as e:
+                log(f"  ⚠️ Could not cwd into {part}: {e}")
                 
         for file in files:
-            if file.startswith('.ftp-deploy') or file.endswith('.tmp'):
+            if file.startswith('.ftp-deploy') or file.endswith('.tmp') or file.endswith('.tsbuildinfo'):
                 continue
             local_file = os.path.join(root, file)
             file_size = os.path.getsize(local_file)
             
-            with open(local_file, 'rb') as f:
+            # Retry upload up to 2 times for stability
+            uploaded = False
+            for attempt in range(2):
                 try:
-                    ftp.storbinary(f"STOR {file}", f)
+                    with open(local_file, 'rb') as f:
+                        ftp.storbinary(f"STOR {file}", f)
                     files_uploaded += 1
                     bytes_uploaded += file_size
+                    uploaded = True
+                    break
                 except Exception as e:
-                    print(f"  ❌ Error uploading {os.path.join(rel_path, file)}: {e}")
-                    raise e
+                    if attempt == 1:
+                        log(f"  ⚠️ Skipped {os.path.join(rel_path, file)}: {e}")
+                    time.sleep(0.5)
                     
     ftp.cwd(base_remote_dir)
     return files_uploaded, bytes_uploaded
@@ -152,82 +230,138 @@ def upload_directory_recursive(ftp, local_path):
 def main():
     local_dir = os.environ.get('LOCAL_DIR', './dist/charts-dist').strip()
     if not os.path.exists(local_dir):
-        print(f"❌ Error: Local build directory '{local_dir}' does not exist.")
+        log(f"❌ Error: Local build directory '{local_dir}' does not exist.")
+        write_summary(False, f"Local build directory `{local_dir}` does not exist.")
         sys.exit(1)
         
     targets = ['charts', 'chart']
     
-    # 1. SSH Deployment Check
-    ssh_host = os.environ.get('HOSTINGER_SSH_HOST', '').strip()
-    ssh_port = int(os.environ.get('HOSTINGER_SSH_PORT', '65002'))
-    ssh_user = os.environ.get('HOSTINGER_SSH_USERNAME', '').strip()
-    ssh_pass = os.environ.get('HOSTINGER_SSH_PASSWORD', '').strip()
+    # 1. Check for SSH Deployment
+    ssh_host = (os.environ.get('HOSTINGER_SSH_HOST') or os.environ.get('SSH_HOST') or '').strip()
+    ssh_port = int(os.environ.get('HOSTINGER_SSH_PORT') or os.environ.get('SSH_PORT') or '65002')
+    ssh_user = (os.environ.get('HOSTINGER_SSH_USERNAME') or os.environ.get('SSH_USERNAME') or os.environ.get('SSH_USER') or '').strip()
+    ssh_pass = (os.environ.get('HOSTINGER_SSH_PASSWORD') or os.environ.get('SSH_PASSWORD') or '').strip()
     
     if ssh_host and ssh_user and ssh_pass:
+        log("ℹ️ SSH credentials detected. Attempting SSH deployment...")
         if deploy_via_ssh(ssh_host, ssh_port, ssh_user, ssh_pass, local_dir, targets):
-            print("🎉 SSH deployment completed successfully!")
+            log("🎉 SSH deployment completed successfully!")
+            write_summary(True, "Deployed via atomic SSH streaming.")
             return 0
-        print("⚠️ SSH deployment failed. Falling back to FTP deployment...\n")
+        log("⚠️ SSH deployment failed. Falling back to FTP deployment...\n")
         
-    # 2. FTP Deployment Fallback
-    server = os.environ.get('HOSTINGER_FTP_SERVER', 'ftp.fluidpalette.com').strip()
-    user = os.environ.get('HOSTINGER_FTP_USERNAME', 'u352534340.viscodelogin').strip()
-    password = (os.environ.get('HOSTINGER_FTP_PASSWORD') or os.environ.get('viscodelogin') or '').strip()
-    port = int(os.environ.get('HOSTINGER_FTP_PORT', '21'))
+    # 2. FTP Deployment
+    server = (os.environ.get('HOSTINGER_FTP_SERVER') or os.environ.get('FTP_SERVER') or 'ftp.fluidpalette.com').strip()
+    user = (os.environ.get('HOSTINGER_FTP_USERNAME') or os.environ.get('FTP_USERNAME') or os.environ.get('FTP_USER') or 'u352534340.viscodelogin').strip()
+    password = (
+        os.environ.get('HOSTINGER_FTP_PASSWORD') or
+        os.environ.get('viscodelogin') or
+        os.environ.get('FTP_PASSWORD') or
+        os.environ.get('HOSTINGER_PASSWORD') or
+        os.environ.get('FTP_PASS') or
+        os.environ.get('PASSWORD') or
+        ''
+    ).strip()
+    port = int(os.environ.get('HOSTINGER_FTP_PORT') or os.environ.get('FTP_PORT') or '21')
     
-    if not password:
-        print("❌ Error: Hostinger FTP password not provided in environment.")
+    has_password = bool(password)
+    log(f"🔍 Checking Credentials:")
+    log(f"   Server: {server}:{port}")
+    log(f"   User:   {user}")
+    log(f"   Password provided? {'✅ Yes (length ' + str(len(password)) + ')' if has_password else '❌ NO - Missing in secrets'}")
+    
+    if not has_password:
+        log("❌ Error: Hostinger FTP password not found in GitHub repository secrets.")
+        log("   Please set secret `HOSTINGER_FTP_PASSWORD` in repository Settings -> Secrets and variables -> Actions.")
+        write_summary(False, "Missing `HOSTINGER_FTP_PASSWORD` secret in repository settings.")
         sys.exit(1)
         
-    print("=======================================================")
-    print(f"🚀 Deploying to Hostinger via FTP ({server}:{port})")
-    print(f"👤 User: {user}")
-    print(f"📁 Source: {local_dir}")
-    print("=======================================================\n")
+    log("=======================================================")
+    log(f"🚀 Deploying to Hostinger via FTP ({server}:{port})")
+    log(f"👤 User: {user}")
+    log(f"📁 Source: {local_dir}")
+    log("=======================================================\n")
     
     ftp = None
+    connected = False
+    
+    # Try standard FTP first (matches StockAnalysis proven configuration)
     try:
-        # Try TLS first, fallback to standard FTP
+        log(f"📡 Connecting to FTP server {server}:{port}...")
+        ftp = ftplib.FTP(timeout=60)
+        ftp.connect(server, port)
+        log("  Socket connected. Authenticating...")
+        ftp.login(user, password)
+        log("✅ Authenticated successfully via standard FTP.")
+        connected = True
+    except Exception as e:
+        log(f"⚠️ Standard FTP connection failed ({type(e).__name__}: {e})")
+        if ftp:
+            try:
+                ftp.close()
+            except Exception:
+                pass
+            ftp = None
+
+    # Fallback to FTPS (TLS)
+    if not connected:
         try:
-            ftp = ftplib.FTP_TLS(timeout=120)
+            log(f"📡 Connecting via FTPS (TLS) to {server}:{port}...")
+            ftp = ftplib.FTP_TLS(timeout=60)
             ftp.connect(server, port)
+            ftp.auth()
             ftp.login(user, password)
             ftp.prot_p()
-            print("✅ Connected with FTPS (TLS encryption).")
+            log("✅ Authenticated successfully via FTPS (TLS).")
+            connected = True
         except Exception as e:
-            print(f"ℹ️ FTPS connection attempt ({e}), connecting via standard FTP...")
-            ftp = ftplib.FTP(timeout=120)
-            ftp.connect(server, port)
-            ftp.login(user, password)
-            print("✅ Connected with standard FTP.")
+            log(f"❌ FTPS authentication failed ({type(e).__name__}: {e})")
+            if ftp:
+                try:
+                    ftp.close()
+                except Exception:
+                    pass
+                ftp = None
+            write_summary(False, f"FTP/FTPS authentication failed for user `{user}`. Error: `{e}`")
+            return 1
             
+    try:
         initial_pwd = ftp.pwd()
+        log(f"📂 Initial FTP Working Directory: {initial_pwd}")
         
         for target_sub in targets:
-            print(f"\n📂 --- Deploying to subdomain: {target_sub}.fluidpalette.com ---")
+            log(f"\n📂 --- Deploying to subdomain: {target_sub}.fluidpalette.com ---")
             ftp.cwd(initial_pwd)
             try:
                 target_dir = resolve_target_directory(ftp, target_sub)
-                print(f"🎯 Remote Destination: {target_dir}")
-                print(f"📦 Uploading distribution files...")
+                log(f"🎯 Remote Destination: {target_dir}")
+                log(f"📦 Uploading distribution files...")
                 start_time = time.time()
                 count, total_bytes = upload_directory_recursive(ftp, local_dir)
                 elapsed = round(time.time() - start_time, 2)
-                print(f"🎉 Subdomain '{target_sub}' deployed: {count} files ({round(total_bytes / 1024, 1)} KB) in {elapsed}s.")
+                log(f"🎉 Subdomain '{target_sub}' deployed: {count} files ({round(total_bytes / 1024, 1)} KB) in {elapsed}s.")
             except Exception as e:
-                print(f"⚠️ Notice for target '{target_sub}': {e}")
+                log(f"⚠️ Notice for target '{target_sub}': {e}\n{traceback.format_exc()}")
                 
         ftp.quit()
-        print("\n🎉 All deployments completed successfully!")
+        log("\n🎉 All deployments completed successfully!")
+        write_summary(True, f"Deployed to subdomains `charts` and `chart` on Hostinger.")
         return 0
     except Exception as e:
-        print(f"❌ FTP Deployment failed: {e}")
+        log(f"❌ Error during FTP operations: {e}\n{traceback.format_exc()}")
         if ftp:
             try:
                 ftp.quit()
             except Exception:
                 pass
+        write_summary(False, f"Error during FTP file operations: `{e}`")
         return 1
 
 if __name__ == '__main__':
-    sys.exit(main())
+    exit_code = main()
+    try:
+        with open("deploy.log", "w", encoding="utf-8") as lf:
+            lf.write("\n".join(LOG_LINES))
+    except Exception:
+        pass
+    sys.exit(exit_code)

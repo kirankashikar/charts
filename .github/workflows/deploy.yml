@@ -52,7 +52,11 @@ jobs:
       - name: 📁 Prepare Deployment Directory
         run: |
           mkdir -p dist/charts-dist
-          cp -r package.json package-lock.json next.config.ts tsconfig.json ecosystem.config.js server.js .env.example public prisma src .next dist/charts-dist/
+          cp -r package.json package-lock.json next.config.ts tsconfig.json ecosystem.config.js server.js .env.example public prisma src dist/charts-dist/
+          # Copy .next but exclude .next/cache to keep upload lean and fast
+          mkdir -p dist/charts-dist/.next
+          cp -r .next/static .next/server .next/standalone .next/BUILD_ID .next/routes-manifest.json dist/charts-dist/.next/ 2>/dev/null || cp -r .next dist/charts-dist/
+          rm -rf dist/charts-dist/.next/cache 2>/dev/null || true
           # Ensure root index.html and .htaccess are in webroot for instant 200 OK
           if [ -f public/index.html ]; then cp public/index.html dist/charts-dist/; fi
           if [ -f public/.htaccess ]; then cp public/.htaccess dist/charts-dist/; fi
@@ -80,21 +84,29 @@ jobs:
       - name: 🚀 Deploy to Hostinger (Python Streamer)
         run: python3 scripts/deploy-to-hostinger.py
         env:
-          HOSTINGER_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
-          HOSTINGER_SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT || 65002 }}
-          HOSTINGER_SSH_USERNAME: ${{ secrets.HOSTINGER_SSH_USERNAME }}
-          HOSTINGER_SSH_PASSWORD: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-          HOSTINGER_FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER || 'ftp.fluidpalette.com' }}
-          HOSTINGER_FTP_USERNAME: ${{ secrets.HOSTINGER_FTP_USERNAME || 'u352534340.viscodelogin' }}
-          HOSTINGER_FTP_PASSWORD: ${{ secrets.HOSTINGER_FTP_PASSWORD || secrets.viscodelogin }}
+          HOSTINGER_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST || secrets.SSH_HOST }}
+          HOSTINGER_SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT || secrets.SSH_PORT || 65002 }}
+          HOSTINGER_SSH_USERNAME: ${{ secrets.HOSTINGER_SSH_USERNAME || secrets.SSH_USERNAME || secrets.SSH_USER }}
+          HOSTINGER_SSH_PASSWORD: ${{ secrets.HOSTINGER_SSH_PASSWORD || secrets.SSH_PASSWORD }}
+          HOSTINGER_FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER || secrets.FTP_SERVER || 'ftp.fluidpalette.com' }}
+          HOSTINGER_FTP_USERNAME: ${{ secrets.HOSTINGER_FTP_USERNAME || secrets.FTP_USERNAME || secrets.FTP_USER || 'u352534340.viscodelogin' }}
+          HOSTINGER_FTP_PASSWORD: ${{ secrets.HOSTINGER_FTP_PASSWORD || secrets.viscodelogin || secrets.FTP_PASSWORD || secrets.HOSTINGER_PASSWORD || secrets.FTP_PASS || secrets.PASSWORD }}
           LOCAL_DIR: ./dist/charts-dist
+
+      - name: 📋 Write Deployment Summary
+        if: always()
+        run: |
+          if [ -f deploy.log ]; then
+            echo "### Deployment Execution Log" >> "$GITHUB_STEP_SUMMARY"
+            echo '```text' >> "$GITHUB_STEP_SUMMARY"
+            cat deploy.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: 🌐 Post-Deployment Endpoint Health Check
         run: |
           echo "Verifying live endpoint response for https://chart.fluidpalette.com..."
-          curl -s -o /dev/null -w "%{http_code}" https://chart.fluidpalette.com || true
-          echo ""
+          curl -s -o /dev/null -w "chart.fluidpalette.com HTTP response: %{http_code}\n" https://chart.fluidpalette.com || true
           echo "Verifying live endpoint response for https://charts.fluidpalette.com..."
-          curl -s -o /dev/null -w "%{http_code}" https://charts.fluidpalette.com || true
-          echo ""
+          curl -s -o /dev/null -w "charts.fluidpalette.com HTTP response: %{http_code}\n" https://charts.fluidpalette.com || true
           echo "Endpoint check finished."
