@@ -34,3 +34,4 @@ describe("time lib", () => {
     assert.equal(relativeTime(past, now), "10m ago");
   });
 });
+
