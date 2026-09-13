@@ -55,10 +55,37 @@ export function Wizard({
 
   const savedPayload = useRef(payload);
 
+  const refetchFromServer = useCallback(async () => {
+    setSaveState("saving");
+    try {
+      const res = await fetch(`/api/charts/${chart.id}`);
+      if (!res.ok) throw new Error(String(res.status));
+      const data = (await res.json()) as { chart: ClientChart };
+      savedPayload.current = JSON.stringify({
+        chartType: data.chart.chartType,
+        shell: data.chart.shell,
+        sheets: data.chart.sheets,
+        mapping: data.chart.mapping,
+        style: data.chart.style,
+        access: data.chart.access,
+        embed: data.chart.embed,
+      });
+      setChart(data.chart);
+      setSaveState("saved");
+    } catch {
+      setSaveState("error");
+    }
+  }, [chart.id]);
+
   useEffect(() => {
     if (payload === savedPayload.current) return;
     setSaveState("saving");
-    const timer = setTimeout(async () => {
+    let cancelled = false;
+    // A transient failure (a blip in connectivity, a cold serverless
+    // function) shouldn't strand the user on "could not save" until their
+    // next keystroke happens to retry it — back off and retry a few times
+    // before actually giving up.
+    const attemptSave = async (attempt: number): Promise<void> => {
       try {
         const res = await fetch(`/api/charts/${chart.id}`, {
           method: "PATCH",
@@ -67,14 +94,25 @@ export function Wizard({
         });
         if (!res.ok) throw new Error(String(res.status));
         const data = (await res.json()) as { chart: ClientChart };
+        if (cancelled) return;
         savedPayload.current = payload;
         setChart((c) => ({ ...c, version: data.chart.version, updatedAt: data.chart.updatedAt }));
         setSaveState("saved");
       } catch {
-        setSaveState("error");
+        if (cancelled) return;
+        if (attempt < 3) {
+          await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+          if (!cancelled) await attemptSave(attempt + 1);
+        } else {
+          setSaveState("error");
+        }
       }
-    }, 700);
-    return () => clearTimeout(timer);
+    };
+    const timer = setTimeout(() => attemptSave(0), 700);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [payload, chart.id]);
 
   const publish = async () => {
@@ -378,8 +416,35 @@ export function Wizard({
                 Live preview
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span style={{ width: 6, height: 6, background: "#ec3013", display: "block" }} />
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    background: saveState === "error" ? "#ec3013" : "#7d7979",
+                    display: "block",
+                  }}
+                />
                 <span style={{ fontSize: 11, color: "#7d7979" }}>{syncNote}</span>
+                <button
+                  type="button"
+                  title="Reload this chart's data from your workspace"
+                  onClick={refetchFromServer}
+                  disabled={saveState === "saving"}
+                  style={{
+                    background: "none",
+                    border: 0,
+                    padding: 2,
+                    lineHeight: 0,
+                    cursor: saveState === "saving" ? "default" : "pointer",
+                    color: "#7d7979",
+                    opacity: saveState === "saving" ? 0.5 : 1,
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
+                    <path d="M13.5 8a5.5 5.5 0 1 1-1.7-3.97" strokeLinecap="round" />
+                    <path d="M13.5 2.5v3.5H10" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
               </div>
             </div>
             <div

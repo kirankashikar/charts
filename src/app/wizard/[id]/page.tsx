@@ -1,8 +1,9 @@
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { toClientChart } from "@/lib/charts";
-import { DEFAULT_SHEETS, DEFAULT_MAPPING, DEFAULT_STYLE } from "@/lib/chart-types";
+import { createDefaultChart } from "@/lib/chart-create";
 import { getGuestUserId, initialsOf } from "@/lib/user";
 import { Wizard } from "@/components/wizard/Wizard";
 
@@ -30,29 +31,11 @@ export default async function WizardPage({ params }: PageProps<"/wizard/[id]">) 
   }
 
   if (!row) {
-    // If not in DB, fallback to demo/default chart
-    const base = await appBaseUrl();
-    const demoChart = {
-      id: id || "demo",
-      name: "B2B SaaS Revenue Flow",
-      chartType: "sankey" as const,
-      engine: "builtin" as const,
-      access: "LINK" as const,
-      sheets: DEFAULT_SHEETS,
-      mapping: DEFAULT_MAPPING,
-      style: DEFAULT_STYLE,
-      shell: "split" as const,
-      embed: "viewer" as const,
-      version: 1,
-      updatedAt: new Date().toISOString(),
-    };
-    return (
-      <Wizard
-        chart={demoChart}
-        initials={session?.user ? initialsOf(session.user.name, session.user.email) : "GU"}
-        viewerUrl={`${base}/c/${demoChart.id}`}
-      />
-    );
+    // No chart exists at this id for this user — rather than opening an
+    // editable-looking chart that can never actually save (nothing backs
+    // it in the database), create a real one and send them there instead.
+    const newId = await createDefaultChart(userId);
+    redirect(`/wizard/${newId}`);
   }
 
   const chart = toClientChart(row);
