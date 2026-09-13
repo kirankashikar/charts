@@ -7,6 +7,7 @@ import {
   Sheets,
   chartDef,
 } from "./chart-types";
+import { WORLD_COUNTRY_PATHS, WORLD_GRATICULE_PATH, WORLD_SPHERE_PATH, projectLatLon } from "./world-map";
 
 export interface BaseShape {
   fill: string;
@@ -279,7 +280,7 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
   const L = flowLinks(sheets, mapping);
   const colors = paletteColors(style);
   const col = (i: number) => colors[i % colors.length];
-  const { ink: INK, onInk: ONINK, groundBg: GROUND, gridLine: GRID, muted: MUTED } = groundColors(style.ground);
+  const { dark, ink: INK, onInk: ONINK, groundBg: GROUND, gridLine: GRID, muted: MUTED } = groundColors(style.ground);
 
   const pushPath = (o: Partial<PathShape> & { d: string }) =>
     out.paths.push({ fill: "none", stroke: "none", sw: 0, op: 1, ...o });
@@ -769,31 +770,24 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
   }
 
   if (def.shape === "geopoint" || def.shape === "geoarc") {
-    const gx = 20,
-      gy = 24,
-      gw = W - 40,
-      gh = H - (def.shape === "geopoint" ? 70 : 40);
-    const project = (lat: number, lon: number): [number, number] => [
-      gx + ((lon + 180) / 360) * gw,
-      gy + ((90 - lat) / 180) * gh,
-    ];
-    pushRect({ x: gx, y: gy, w: gw, h: gh, fill: "none", stroke: GRID, sw: 1 });
-    for (let lon = -180; lon <= 180; lon += 60) {
-      const [x] = project(0, lon);
-      out.lines.push({ x1: x, y1: gy, x2: x, y2: gy + gh, stroke: GRID, sw: 1, op: 0.5 });
-    }
-    for (let lat = -60; lat <= 60; lat += 30) {
-      const [, yy] = project(lat, 0);
-      out.lines.push({ x1: gx, y1: yy, x2: gx + gw, y2: yy, stroke: GRID, sw: 1, op: 0.5 });
-    }
+    // A real Natural Earth basemap (via d3-geo + topojson, see world-map.ts)
+    // instead of a bare lat/lon grid — countries under a light ocean fill,
+    // points and arcs projected into that exact same coordinate space so
+    // they land on the right country rather than a generic grid cell.
+    pushPath({ d: WORLD_SPHERE_PATH, fill: dark ? "#2d2b2b" : "#eae7e7" });
+    pushPath({ d: WORLD_GRATICULE_PATH, stroke: GRID, sw: 0.5, op: 0.5 });
+    WORLD_COUNTRY_PATHS.forEach((d) => pushPath({ d, fill: dark ? "#444141" : "#d7d3d3", stroke: GROUND, sw: 0.5 }));
+    pushPath({ d: WORLD_SPHERE_PATH, stroke: INK, sw: 1.2, op: 0.5 });
 
     if (def.shape === "geopoint") {
       const points = geoPoints(sheets, mapping);
       const maxV = Math.max(...points.map((p) => p.value));
       points.forEach((p, i) => {
-        const [x, y] = project(p.lat, p.lon);
+        const proj = projectLatLon(p.lat, p.lon);
+        if (!proj) return;
+        const [x, y] = proj;
         const r = 5 + 26 * Math.sqrt(p.value / maxV);
-        pushCircle({ cx: x, cy: y, r, fill: col(i), op: 0.55, stroke: col(i), sw: 1.5 });
+        pushCircle({ cx: x, cy: y, r, fill: col(i), op: 0.7, stroke: col(i), sw: 1.5 });
         if (lab) {
           text({
             x,
@@ -810,10 +804,13 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
       const maxV = Math.max(...arcs.map((a) => a.value));
       const places = new Map<string, [number, number]>();
       arcs.forEach((a, i) => {
-        const [x0, y0] = project(a.originLat, a.originLon);
-        const [x1, y1] = project(a.destLat, a.destLon);
-        places.set(a.originPlace, [x0, y0]);
-        places.set(a.destPlace, [x1, y1]);
+        const origin = projectLatLon(a.originLat, a.originLon);
+        const dest = projectLatLon(a.destLat, a.destLon);
+        if (!origin || !dest) return;
+        const [x0, y0] = origin;
+        const [x1, y1] = dest;
+        places.set(a.originPlace, origin);
+        places.set(a.destPlace, dest);
         const dx = x1 - x0,
           dy = y1 - y0;
         const norm = Math.hypot(dx, dy) || 1;
@@ -824,7 +821,7 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
           d: `M${x0.toFixed(1)},${y0.toFixed(1)}Q${cxp.toFixed(1)},${cyp.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`,
           stroke: col(i),
           sw: Math.max(1, (a.value / maxV) * 7),
-          op: 0.55,
+          op: 0.7,
         });
       });
       [...places.entries()].forEach(([name, [x, y]]) => {
