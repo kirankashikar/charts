@@ -43,6 +43,7 @@ export async function PATCH(request: Request, { params }: Params) {
   const sheets = body.sheets !== undefined ? normalizeSheets(body.sheets) : normalizeSheets(chart.sheets);
   const style = body.style !== undefined ? normalizeStyle(body.style) : normalizeStyle(chart.style);
   const access = parseAccess(body.access);
+  const chartType = body.chartType !== undefined ? normalizeChartType(body.chartType) : chart.chartType;
 
   const updated = await prisma.chart.update({
     where: { id: chart.id },
@@ -50,8 +51,8 @@ export async function PATCH(request: Request, { params }: Params) {
       sheets: asJson(sheets),
       style: asJson(style),
       name: style.title || chart.name,
-      mapping: asJson(normalizeMapping(body.mapping ?? chart.mapping, sheets)),
-      chartType: body.chartType !== undefined ? normalizeChartType(body.chartType) : chart.chartType,
+      mapping: asJson(normalizeMapping(body.mapping ?? chart.mapping, sheets, chartType)),
+      chartType,
       engine: body.engine !== undefined ? normalizeEngine(body.engine) : chart.engine,
       shell: body.shell === "canvas" ? "canvas" : body.shell === "split" ? "split" : chart.shell,
       embed:

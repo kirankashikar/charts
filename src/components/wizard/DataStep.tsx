@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { chartDef, ColumnType, Sheet, SheetKey, Sheets } from "@/lib/chart-types";
+import { normalizeMapping } from "@/lib/charts";
 import { tabBtn } from "./controls";
 import type { DataStepProps } from "./types";
 
@@ -42,6 +43,7 @@ export function DataStep({ chart, update, activeSheet, setActiveSheet }: DataSte
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState("");
   const [pasteNote, setPasteNote] = useState("");
+  const [delimiterChoice, setDelimiterChoice] = useState<"auto" | string>("auto");
 
   const sheet = chart.sheets[activeSheet];
   const def = chartDef(chart.chartType);
@@ -59,14 +61,21 @@ export function DataStep({ chart, update, activeSheet, setActiveSheet }: DataSte
       setPasteNote("Need a header row and at least one data row.");
       return;
     }
-    const delimiter = detectDelimiter(rawLines);
+    const delimiter = delimiterChoice === "auto" ? detectDelimiter(rawLines) : delimiterChoice;
     const lines = rawLines.map((l) => l.split(delimiter).map((cell) => cell.trim()));
-    mutate((s) => ({
+    const newSheets = editSheet(chart.sheets, activeSheet, (s) => ({
       ...s,
       cols: lines[0],
       types: lines[0].map((_, i) => (isFinite(parseFloat(lines[1][i])) ? "number" : "text")) as ColumnType[],
       rows: lines.slice(1),
     }));
+    // Re-clamp the mapping right away when the pasted block feeds the
+    // active chart type — otherwise a paste with fewer columns than the
+    // mapping expects leaves a dangling index the Map step can't sanely
+    // show as selected until the next server round-trip fixes it up.
+    const mapping =
+      activeSheet === feedingKey ? normalizeMapping(chart.mapping, newSheets, chart.chartType) : chart.mapping;
+    update({ sheets: newSheets, mapping });
     setPasteOpen(false);
     setPasteText("");
     setPasteNote("");
@@ -106,8 +115,33 @@ export function DataStep({ chart, update, activeSheet, setActiveSheet }: DataSte
 
       {pasteOpen && (
         <div style={{ border: "2px solid #ec3013", padding: 16, marginTop: 16, background: "#fff2ef" }}>
-          <div style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: 13, marginBottom: 8 }}>
-            Paste cells — tab, comma, semicolon, pipe, or tilde separated
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 8,
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: 13 }}>Paste cells</div>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#605d5d" }}>
+              Delimiter
+              <select
+                className="input"
+                value={delimiterChoice}
+                onChange={(e) => setDelimiterChoice(e.target.value)}
+                style={{ fontSize: 12, padding: "3px 6px" }}
+              >
+                <option value="auto">Auto-detect</option>
+                {DELIMITERS.map((d) => (
+                  <option key={d.char} value={d.char}>
+                    {d.label[0].toUpperCase() + d.label.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <textarea
             className="input"

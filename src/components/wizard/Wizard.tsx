@@ -43,6 +43,7 @@ export function Wizard({
   );
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [publishing, setPublishing] = useState(false);
+  const [refreshNote, setRefreshNote] = useState<string | null>(null);
 
   const update = useCallback((patch: Partial<ClientChart>) => setChart((c) => ({ ...c, ...patch })), []);
 
@@ -66,9 +67,20 @@ export function Wizard({
 
   const refetchFromServer = useCallback(async () => {
     setSaveState("saving");
+    setRefreshNote(null);
     try {
       const res = await fetch(`/api/charts/${chart.id}`);
-      if (!res.ok) throw new Error(String(res.status));
+      if (!res.ok) {
+        setSaveState("error");
+        setRefreshNote(
+          res.status === 404
+            ? "This chart is gone from your workspace — it may have been deleted elsewhere."
+            : res.status === 401
+              ? "Your session isn't signed in to load this chart. Try signing in again."
+              : `Couldn't reach the server (${res.status}). Your local edits are unaffected — try again.`
+        );
+        return;
+      }
       const data = (await res.json()) as { chart: ClientChart };
       savedPayload.current = JSON.stringify({
         chartType: data.chart.chartType,
@@ -81,14 +93,30 @@ export function Wizard({
       });
       setChart(data.chart);
       setSaveState("saved");
+      // Tell the user plainly whether the data that just loaded actually
+      // fits the chart type it's meant to feed, rather than leaving them to
+      // guess from a blank or locked preview.
+      if (data.chart.chartType) {
+        const loadedDef = chartDef(data.chart.chartType);
+        const loadedScene = buildScene(toSnapshot(data.chart));
+        setRefreshNote(
+          loadedScene.locked
+            ? `Loaded from your workspace — but this data doesn't fit ${loadedDef.name} yet. Check the Map step.`
+            : `Loaded from your workspace — up to date as of the last save.`
+        );
+      } else {
+        setRefreshNote("Loaded from your workspace.");
+      }
     } catch {
       setSaveState("error");
+      setRefreshNote("Couldn't reach the server. Your local edits are unaffected — try again.");
     }
   }, [chart.id]);
 
   useEffect(() => {
     if (payload === savedPayload.current) return;
     setSaveState("saving");
+    setRefreshNote(null);
     let cancelled = false;
     // A transient failure (a blip in connectivity, a cold serverless
     // function) shouldn't strand the user on "could not save" until their
@@ -374,8 +402,8 @@ export function Wizard({
               <button className="btn btn-secondary" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}>
                 ← Back
               </button>
-              <button className="btn btn-primary" onClick={onNext}>
-                {NEXT_LABELS[step]}
+              <button className="btn btn-primary" onClick={onNext} disabled={step === 0 && !chart.chartType}>
+                {step === 0 && !chart.chartType ? "Pick a chart type" : NEXT_LABELS[step]}
               </button>
               <span style={{ fontSize: 12, color: "#7d7979", marginLeft: "auto" }}>{stepMeta}</span>
             </div>
@@ -458,6 +486,32 @@ export function Wizard({
                 </button>
               </div>
             </div>
+            {refreshNote && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 20px",
+                  borderBottom: "1px solid var(--color-divider)",
+                  background: refreshNote.startsWith("Loaded from your workspace — up to date")
+                    ? "var(--color-surface)"
+                    : "#fff2ef",
+                  fontSize: 12,
+                  color: "#444141",
+                }}
+              >
+                <span>{refreshNote}</span>
+                <button
+                  onClick={() => setRefreshNote(null)}
+                  style={{ background: "none", border: 0, color: "#7d7979", cursor: "pointer", fontSize: 14, lineHeight: 1 }}
+                  title="Dismiss"
+                >
+                  ×
+                </button>
+              </div>
+            )}
             {(def.shape === "geopoint" || def.shape === "geoarc" || def.shape === "georegion") && (
               <div
                 style={{
@@ -516,27 +570,48 @@ export function Wizard({
               }}
             >
               <div style={{ width: "100%", maxWidth: 820 }}>
-                <div
-                  style={{
-                    fontFamily: "var(--font-heading)",
-                    fontWeight: 800,
-                    fontSize: 19,
-                    lineHeight: 1.15,
-                    color: ground.ink,
-                  }}
-                >
-                  {chart.style.title}
-                </div>
-                <div style={{ fontSize: 12, color: ground.muted, marginTop: 3 }}>{chart.style.subtitle}</div>
-                <hr
-                  style={{
-                    height: 2,
-                    border: 0,
-                    margin: "12px 0",
-                    background: ground.dark ? "#605d5d" : "var(--color-divider)",
-                  }}
-                />
-                {scene.locked ? (
+                {!chart.chartType ? (
+                  <div
+                    style={{
+                      border: "2px dashed var(--color-divider)",
+                      padding: "48px 28px",
+                      background: "var(--color-surface)",
+                      textAlign: "center",
+                    }}
+                  >
+                    <div style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: 17, marginBottom: 6 }}>
+                      Pick a chart type to see a preview
+                    </div>
+                    <div style={{ fontSize: 13, color: "#605d5d", maxWidth: "44ch", margin: "0 auto 16px" }}>
+                      The Chart step seeds this space with data shaped for whatever type you choose.
+                    </div>
+                    <button className="btn btn-primary" onClick={() => setStep(0)}>
+                      Choose a chart type
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div
+                      style={{
+                        fontFamily: "var(--font-heading)",
+                        fontWeight: 800,
+                        fontSize: 19,
+                        lineHeight: 1.15,
+                        color: ground.ink,
+                      }}
+                    >
+                      {chart.style.title}
+                    </div>
+                    <div style={{ fontSize: 12, color: ground.muted, marginTop: 3 }}>{chart.style.subtitle}</div>
+                    <hr
+                      style={{
+                        height: 2,
+                        border: 0,
+                        margin: "12px 0",
+                        background: ground.dark ? "#605d5d" : "var(--color-divider)",
+                      }}
+                    />
+                    {scene.locked ? (
                   <div
                     style={{
                       border: "2px dashed var(--color-divider)",
@@ -560,23 +635,25 @@ export function Wizard({
                       Add the columns
                     </button>
                   </div>
-                ) : (
-                  <EngineChart snapshot={snapshot} />
+                    ) : (
+                      <EngineChart snapshot={snapshot} />
+                    )}
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 16,
+                        flexWrap: "wrap",
+                        marginTop: 14,
+                        fontSize: 11,
+                        color: ground.muted,
+                      }}
+                    >
+                      <span>{def.name}</span>
+                      <span>{rowNote}</span>
+                      <span style={{ marginLeft: "auto" }}>graphos.app</span>
+                    </div>
+                  </>
                 )}
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 16,
-                    flexWrap: "wrap",
-                    marginTop: 14,
-                    fontSize: 11,
-                    color: ground.muted,
-                  }}
-                >
-                  <span>{def.name}</span>
-                  <span>{rowNote}</span>
-                  <span style={{ marginLeft: "auto" }}>graphos.app</span>
-                </div>
               </div>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import type { Access, Chart } from "@prisma/client";
 import {
   CHART_GROUPS,
+  ChartShape,
   ChartSnapshot,
   ChartStyle,
   ColumnType,
@@ -15,6 +16,7 @@ import {
   PaletteId,
   Sheet,
   Sheets,
+  chartDef,
 } from "./chart-types";
 
 /** A chart as the client components consume it: JSON-safe, no Date objects. */
@@ -71,7 +73,7 @@ export function normalizeSheets(raw: unknown): Sheets {
   };
 }
 
-export function normalizeMapping(raw: unknown, sheets: Sheets): Mapping {
+export function normalizeMapping(raw: unknown, sheets: Sheets, activeChartType?: string): Mapping {
   const r = (raw ?? {}) as Partial<Mapping>;
   const clamp = (v: unknown, fallback: number, max: number) => {
     const n = Math.floor(num(v, fallback));
@@ -85,9 +87,12 @@ export function normalizeMapping(raw: unknown, sheets: Sheets): Mapping {
   // corrupted them (e.g. a fresh sankey's 3-column sheet clamped geoPoint's
   // default value index, 3, down to 2, aliasing it onto "Lon" the moment a
   // user later switched to a symbol map). Bound those against MAX_COLS
-  // instead; chart-builder's data readers already tolerate an index past
-  // the sheet's actual width by treating that cell as blank.
-  const gc = MAX_COLS;
+  // instead — except for whichever shape is actually active right now,
+  // which should stay pinned to the real column count so a user pasting
+  // fewer columns than the mapping expects doesn't leave a dangling
+  // out-of-range index the Map step can't sanely show as selected.
+  const activeShape: ChartShape | undefined = activeChartType ? chartDef(activeChartType).shape : undefined;
+  const boundFor = (shape: ChartShape) => (activeShape === shape ? fc : MAX_COLS);
   const flowRaw = (r.flow ?? DEFAULT_MAPPING.flow) as Mapping["flow"];
   const matrixRaw = (r.matrix ?? DEFAULT_MAPPING.matrix) as Mapping["matrix"];
   const obsRaw = (r.obs ?? DEFAULT_MAPPING.obs) as Mapping["obs"];
@@ -105,27 +110,27 @@ export function normalizeMapping(raw: unknown, sheets: Sheets): Mapping {
     },
     matrix: { label: clamp(matrixRaw.label, 0, mc), measures: measures.sort((a, b) => a - b) },
     obs: {
-      group: clamp(obsRaw.group, 0, gc),
-      value: clamp(obsRaw.value, 1, gc),
+      group: clamp(obsRaw.group, 0, boundFor("obs")),
+      value: clamp(obsRaw.value, 1, boundFor("obs")),
     },
     geoPoint: {
-      place: clamp(geoPointRaw.place, 0, gc),
-      lat: clamp(geoPointRaw.lat, 1, gc),
-      lon: clamp(geoPointRaw.lon, 2, gc),
-      value: clamp(geoPointRaw.value, 3, gc),
+      place: clamp(geoPointRaw.place, 0, boundFor("geopoint")),
+      lat: clamp(geoPointRaw.lat, 1, boundFor("geopoint")),
+      lon: clamp(geoPointRaw.lon, 2, boundFor("geopoint")),
+      value: clamp(geoPointRaw.value, 3, boundFor("geopoint")),
     },
     geoArc: {
-      originPlace: clamp(geoArcRaw.originPlace, 0, gc),
-      originLat: clamp(geoArcRaw.originLat, 1, gc),
-      originLon: clamp(geoArcRaw.originLon, 2, gc),
-      destPlace: clamp(geoArcRaw.destPlace, 3, gc),
-      destLat: clamp(geoArcRaw.destLat, 4, gc),
-      destLon: clamp(geoArcRaw.destLon, 5, gc),
-      value: clamp(geoArcRaw.value, 6, gc),
+      originPlace: clamp(geoArcRaw.originPlace, 0, boundFor("geoarc")),
+      originLat: clamp(geoArcRaw.originLat, 1, boundFor("geoarc")),
+      originLon: clamp(geoArcRaw.originLon, 2, boundFor("geoarc")),
+      destPlace: clamp(geoArcRaw.destPlace, 3, boundFor("geoarc")),
+      destLat: clamp(geoArcRaw.destLat, 4, boundFor("geoarc")),
+      destLon: clamp(geoArcRaw.destLon, 5, boundFor("geoarc")),
+      value: clamp(geoArcRaw.value, 6, boundFor("geoarc")),
     },
     geoRegion: {
-      place: clamp(geoRegionRaw.place, 0, gc),
-      value: clamp(geoRegionRaw.value, 1, gc),
+      place: clamp(geoRegionRaw.place, 0, boundFor("georegion")),
+      value: clamp(geoRegionRaw.value, 1, boundFor("georegion")),
       level: geoRegionRaw.level === "usState" ? "usState" : "country",
     },
   };
@@ -154,7 +159,10 @@ export function normalizeStyle(raw: unknown): ChartStyle {
   };
 }
 
+/** Empty string means "no type chosen yet" — a real, valid state for a
+ *  brand-new chart, kept as-is rather than silently defaulting to sankey. */
 export function normalizeChartType(raw: unknown): string {
+  if (raw === "") return "";
   return typeof raw === "string" && CHART_IDS.has(raw) ? raw : "sankey";
 }
 
@@ -164,14 +172,15 @@ export function normalizeEngine(raw: unknown): Engine {
 
 export function toClientChart(chart: Chart): ClientChart {
   const sheets = normalizeSheets(chart.sheets);
+  const chartType = normalizeChartType(chart.chartType);
   return {
     id: chart.id,
     name: chart.name,
-    chartType: normalizeChartType(chart.chartType),
+    chartType,
     engine: normalizeEngine(chart.engine),
     shell: chart.shell === "canvas" ? "canvas" : "split",
     sheets,
-    mapping: normalizeMapping(chart.mapping, sheets),
+    mapping: normalizeMapping(chart.mapping, sheets, chartType),
     style: normalizeStyle(chart.style),
     access: chart.access,
     embed: chart.embed,
@@ -195,12 +204,13 @@ export function toSnapshot(chart: ClientChart): ChartSnapshot {
 export function snapshotFromJson(raw: unknown): ChartSnapshot {
   const r = (raw ?? {}) as Partial<ChartSnapshot>;
   const sheets = normalizeSheets(r.sheets);
+  const chartType = normalizeChartType(r.chartType);
   return {
     name: str(r.name, "Untitled chart"),
-    chartType: normalizeChartType(r.chartType),
+    chartType,
     engine: normalizeEngine(r.engine),
     sheets,
-    mapping: normalizeMapping(r.mapping, sheets),
+    mapping: normalizeMapping(r.mapping, sheets, chartType),
     style: normalizeStyle(r.style),
   };
 }

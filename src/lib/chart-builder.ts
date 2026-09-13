@@ -914,9 +914,15 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
 
   const alpha = style.fillAlpha === undefined ? 1 : style.fillAlpha;
   if (alpha < 1) {
+    // Some chart types (network, parallel coordinates, radar's profile
+    // outline) draw their actual data as a stroke rather than a fill, so
+    // gating this on `fill` left the slider doing nothing visible for
+    // them. Apply it to any shape carrying visible ink, fill or stroke.
     [out.paths, out.rects, out.circles].forEach((list) =>
       list.forEach((s) => {
-        if (s.fill && s.fill !== "none") s.op = Number((s.op * alpha).toFixed(3));
+        const hasFill = s.fill && s.fill !== "none";
+        const hasStroke = s.stroke && s.stroke !== "none";
+        if (hasFill || hasStroke) s.op = Number((s.op * alpha).toFixed(3));
       })
     );
   }

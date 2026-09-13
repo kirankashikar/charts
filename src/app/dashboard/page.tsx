@@ -143,7 +143,7 @@ export default async function Dashboard() {
                   </div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     <span className="tag tag-outline" style={{ fontSize: 11 }}>
-                      {chartDef(chart.chartType).name}
+                      {chart.chartType ? chartDef(chart.chartType).name : "No type chosen"}
                     </span>
                     <span className={published ? "tag tag-accent" : "tag tag-neutral"} style={{ fontSize: 11 }}>
                       {published ? "Published" : "Draft"}

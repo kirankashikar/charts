@@ -28,9 +28,12 @@ describe("charts lib", () => {
 
     it("falls back to sankey for unknown types or invalid values", () => {
       assert.equal(normalizeChartType("unknown_chart"), "sankey");
-      assert.equal(normalizeChartType(""), "sankey");
       assert.equal(normalizeChartType(null), "sankey");
       assert.equal(normalizeChartType(123), "sankey");
+    });
+
+    it("passes an empty string through as-is — it means no type chosen yet", () => {
+      assert.equal(normalizeChartType(""), "");
     });
   });
 

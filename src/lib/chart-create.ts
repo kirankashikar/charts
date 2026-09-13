@@ -15,18 +15,19 @@ export async function resolveOwnerUserId(sessionUserId: string | undefined): Pro
   return guestUser.id;
 }
 
-/** Creates a fresh chart on the default seed data for the given user (or the
- *  shared guest account) and returns its id. */
+/** Creates a fresh chart with no type chosen yet — the wizard's Chart step
+ *  seeds real data and a title once the user actually picks one, rather
+ *  than pre-filling a sankey funnel nobody asked for. */
 export async function createDefaultChart(sessionUserId: string | undefined): Promise<string> {
   const userId = await resolveOwnerUserId(sessionUserId);
   const chart = await prisma.chart.create({
     data: {
       userId,
-      name: DEFAULT_STYLE.title,
-      chartType: "sankey",
+      name: "Untitled chart",
+      chartType: "",
       sheets: asJson(DEFAULT_SHEETS),
       mapping: asJson(DEFAULT_MAPPING),
-      style: asJson(DEFAULT_STYLE),
+      style: asJson({ ...DEFAULT_STYLE, title: "Untitled chart", subtitle: "" }),
     },
   });
   return chart.id;
