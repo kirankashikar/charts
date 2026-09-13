@@ -1,9 +1,17 @@
 "use client";
 
-import { CHART_GROUPS, SheetKey, isSeedSheet, seedFor } from "@/lib/chart-types";
+import { CHART_GROUPS, ChartShape, DEFAULT_MAPPING, Mapping, SheetKey, isSeedSheet, seedFor } from "@/lib/chart-types";
 import { chartIcon } from "./chart-icons";
 import { cardBtn } from "./controls";
 import type { StepProps } from "./types";
+
+/** Which Mapping key a shape reads from. */
+const MAPPING_KEY: Partial<Record<ChartShape, keyof Mapping>> = {
+  obs: "obs",
+  geopoint: "geoPoint",
+  geoarc: "geoArc",
+  georegion: "geoRegion",
+};
 
 export function ChartStep({
   chart,
@@ -52,9 +60,15 @@ export function ChartStep({
                     // holds a built-in seed — never overwrite something the user
                     // has typed or pasted over it.
                     if (isSeedSheet(current, item.shape)) {
+                      const mappingKey = MAPPING_KEY[item.shape];
                       update({
                         chartType: item.id,
                         sheets: { ...chart.sheets, [feedingKey]: seedFor(item.id) },
+                        // Reset this shape's own mapping to its defaults too —
+                        // it may have been clamped against whatever sheet was
+                        // active before (e.g. a fresh sankey's 3-column sheet
+                        // corrupting a geo chart's default column indices).
+                        ...(mappingKey ? { mapping: { ...chart.mapping, [mappingKey]: DEFAULT_MAPPING[mappingKey] } } : {}),
                       });
                     } else {
                       update({ chartType: item.id });

@@ -44,12 +44,21 @@ export interface GeoArcMapping {
   value: number;
 }
 
+export type RegionLevel = "country" | "usState";
+
+export interface GeoRegionMapping {
+  place: number;
+  value: number;
+  level: RegionLevel;
+}
+
 export interface Mapping {
   flow: FlowMapping;
   matrix: MatrixMapping;
   obs: ObsMapping;
   geoPoint: GeoPointMapping;
   geoArc: GeoArcMapping;
+  geoRegion: GeoRegionMapping;
 }
 
 export type PaletteId = "accent" | "ink" | "duo" | "wash" | "deep" | "custom";
@@ -65,13 +74,17 @@ export interface ChartStyle {
   labels: boolean;
   values: boolean;
   sortDesc: boolean;
+  /** Symbol/connection map zoom: 0 = whole world, 1 = fit to the data with
+   *  standard padding, <1 tighter, >1 further out. */
+  geoZoom: number;
 }
 
 /** What a chart type needs from the data: two node columns and a weight
  *  (flow), a label plus numeric measures (matrix), raw observations (obs),
- *  a single lat/lon point per row (geopoint), or a lat/lon pair per row
- *  (geoarc). */
-export type ChartShape = "flow" | "matrix" | "obs" | "geopoint" | "geoarc";
+ *  a single lat/lon point per row (geopoint), a lat/lon pair per row
+ *  (geoarc), or a place name matched against a country/US-state boundary,
+ *  no coordinates required (georegion). */
+export type ChartShape = "flow" | "matrix" | "obs" | "geopoint" | "geoarc" | "georegion";
 
 export interface ChartDef {
   id: string;
@@ -113,6 +126,7 @@ export const ENGINE_SUPPORT: Record<Engine, string[]> = {
     "violin",
     "symbolmap",
     "connmap",
+    "choropleth",
   ],
   echarts: ["sankey", "sunburst", "treemap", "network", "chord", "parallel", "radar"],
   plotly: ["sankey", "sunburst", "treemap", "parallel", "radar"],
@@ -166,6 +180,7 @@ export const CHART_GROUPS: ChartGroup[] = [
     items: [
       { id: "symbolmap", name: "Proportional symbol map", shape: "geopoint", note: "Magnitude by place" },
       { id: "connmap", name: "Connection map", shape: "geoarc", note: "Origin → destination arcs" },
+      { id: "choropleth", name: "Choropleth map", shape: "georegion", note: "Shade countries or US states by name" },
     ],
   },
 ];
@@ -378,6 +393,21 @@ const CONNMAP_SEED: Sheet = {
   ],
 };
 
+const CHOROPLETH_SEED: Sheet = {
+  name: "Places",
+  cols: ["Country", "Sales"],
+  types: ["text", "number"],
+  rows: [
+    ["United States of America", "4800"],
+    ["Brazil", "1200"],
+    ["Germany", "2100"],
+    ["India", "1800"],
+    ["Japan", "1600"],
+    ["Australia", "700"],
+    ["Nigeria", "450"],
+  ],
+};
+
 const PROFILE_SEED: Sheet = {
   name: "Segments",
   cols: ["Segment", "Reach", "Engagement", "Retention", "Revenue", "Cost"],
@@ -427,6 +457,7 @@ export const FLOW_SEEDS: Record<string, Sheet> = {
   violin: VIOLIN_SEED,
   symbolmap: SYMBOLMAP_SEED,
   connmap: CONNMAP_SEED,
+  choropleth: CHOROPLETH_SEED,
 };
 
 /** Seed data per matrix-shaped chart type — one label column plus five
@@ -471,6 +502,7 @@ export const DEFAULT_MAPPING: Mapping = {
   obs: { group: 0, value: 1 },
   geoPoint: { place: 0, lat: 1, lon: 2, value: 3 },
   geoArc: { originPlace: 0, originLat: 1, originLon: 2, destPlace: 3, destLat: 4, destLon: 5, value: 6 },
+  geoRegion: { place: 0, value: 1, level: "country" },
 };
 
 export const DEFAULT_STYLE: ChartStyle = {
@@ -483,4 +515,5 @@ export const DEFAULT_STYLE: ChartStyle = {
   labels: true,
   values: true,
   sortDesc: true,
+  geoZoom: 1,
 };

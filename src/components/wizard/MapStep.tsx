@@ -1,7 +1,8 @@
 "use client";
 
-import { chartDef, Mapping } from "@/lib/chart-types";
-import { flowLinks, matrixData, obsGroups, geoPoints, geoArcs } from "@/lib/chart-builder";
+import { chartDef, Mapping, RegionLevel } from "@/lib/chart-types";
+import { flowLinks, matrixData, obsGroups, geoPoints, geoArcs, geoRegionRows } from "@/lib/chart-builder";
+import { findNamedRegion } from "@/lib/world-map";
 import { chipBtn } from "./controls";
 import type { StepProps } from "./types";
 
@@ -36,6 +37,8 @@ export function MapStep({ chart, update }: StepProps) {
     update({ mapping: { ...chart.mapping, geoPoint: { ...chart.mapping.geoPoint, [key]: value } } });
   const setGeoArc = <K extends keyof Mapping["geoArc"]>(key: K, value: number) =>
     update({ mapping: { ...chart.mapping, geoArc: { ...chart.mapping.geoArc, [key]: value } } });
+  const setGeoRegion = (patch: Partial<Mapping["geoRegion"]>) =>
+    update({ mapping: { ...chart.mapping, geoRegion: { ...chart.mapping.geoRegion, ...patch } } });
   const fields: FieldRow[] = [];
 
   if (def.shape === "flow") {
@@ -152,6 +155,34 @@ export function MapStep({ chart, update }: StepProps) {
     ).forEach(([key, label, help]) => {
       fields.push({ label, help, control: colSelect(cols, chart.mapping.geoArc[key], (i) => setGeoArc(key, i)) });
     });
+  } else if (def.shape === "georegion") {
+    fields.push({
+      label: "Level",
+      help: "Which boundary set to match place names against",
+      control: (
+        <div style={{ display: "flex", gap: 6 }}>
+          {(["country", "usState"] as RegionLevel[]).map((level) => (
+            <button
+              key={level}
+              onClick={() => setGeoRegion({ level })}
+              style={chipBtn(chart.mapping.geoRegion.level === level)}
+            >
+              {level === "country" ? "Country" : "US State"}
+            </button>
+          ))}
+        </div>
+      ),
+    });
+    fields.push({
+      label: "Place",
+      help: "A country or US state name — no coordinates needed",
+      control: colSelect(cols, chart.mapping.geoRegion.place, (i) => setGeoRegion({ place: i })),
+    });
+    fields.push({
+      label: "Value",
+      help: "Drives the shade — darker means higher",
+      control: colSelect(cols, chart.mapping.geoRegion.value, (i) => setGeoRegion({ value: i })),
+    });
   }
 
   const intro =
@@ -163,12 +194,18 @@ export function MapStep({ chart, update }: StepProps) {
           ? "A violin plot needs one row per observation — a group column plus the raw value, not a pre-aggregated total."
           : def.shape === "geopoint"
             ? "A symbol map needs a latitude and longitude column plus a numeric value — one row per place."
-            : "A connection map needs a latitude/longitude pair for both the origin and the destination, plus a numeric value.";
+            : def.shape === "geoarc"
+              ? "A connection map needs a latitude/longitude pair for both the origin and the destination, plus a numeric value."
+              : "A choropleth needs a place name and a numeric value — no coordinates. Names are matched against country or US state boundaries.";
 
   const locked =
     (def.shape === "obs" && obsGroups(chart.sheets, chart.mapping).length === 0) ||
     (def.shape === "geopoint" && geoPoints(chart.sheets, chart.mapping).length === 0) ||
-    (def.shape === "geoarc" && geoArcs(chart.sheets, chart.mapping).length === 0);
+    (def.shape === "geoarc" && geoArcs(chart.sheets, chart.mapping).length === 0) ||
+    (def.shape === "georegion" && geoRegionRows(chart.sheets, chart.mapping).length === 0);
+
+  const regionRows = def.shape === "georegion" ? geoRegionRows(chart.sheets, chart.mapping) : [];
+  const regionMatchedCount = regionRows.filter((r) => findNamedRegion(r.place, chart.mapping.geoRegion.level)).length;
 
   const validNote = locked
     ? `${def.name} can't render from these sheets yet — add the columns it needs, or pick another type.`
@@ -182,7 +219,11 @@ export function MapStep({ chart, update }: StepProps) {
           ? `${obsGroups(chart.sheets, chart.mapping).length} groups found across ${chart.sheets.flows.rows.length} rows.`
           : def.shape === "geopoint"
             ? `${geoPoints(chart.sheets, chart.mapping).length} valid places found.`
-            : `${geoArcs(chart.sheets, chart.mapping).length} valid routes found.`;
+            : def.shape === "geoarc"
+              ? `${geoArcs(chart.sheets, chart.mapping).length} valid routes found.`
+              : `${regionMatchedCount} of ${regionRows.length} names matched a ${
+                  chart.mapping.geoRegion.level === "usState" ? "US state" : "country"
+                }.`;
 
   return (
     <div style={{ padding: "24px 28px 40px" }}>

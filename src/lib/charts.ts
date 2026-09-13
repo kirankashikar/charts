@@ -79,11 +79,21 @@ export function normalizeMapping(raw: unknown, sheets: Sheets): Mapping {
   };
   const fc = Math.max(1, sheets.flows.cols.length);
   const mc = Math.max(1, sheets.segments.cols.length);
+  // obs/geoPoint/geoArc/geoRegion all read from the "flows" sheet too, but
+  // whichever chart type is actually active right now owns that sheet's
+  // real column count — clamping an inactive shape's defaults against it
+  // corrupted them (e.g. a fresh sankey's 3-column sheet clamped geoPoint's
+  // default value index, 3, down to 2, aliasing it onto "Lon" the moment a
+  // user later switched to a symbol map). Bound those against MAX_COLS
+  // instead; chart-builder's data readers already tolerate an index past
+  // the sheet's actual width by treating that cell as blank.
+  const gc = MAX_COLS;
   const flowRaw = (r.flow ?? DEFAULT_MAPPING.flow) as Mapping["flow"];
   const matrixRaw = (r.matrix ?? DEFAULT_MAPPING.matrix) as Mapping["matrix"];
   const obsRaw = (r.obs ?? DEFAULT_MAPPING.obs) as Mapping["obs"];
   const geoPointRaw = (r.geoPoint ?? DEFAULT_MAPPING.geoPoint) as Mapping["geoPoint"];
   const geoArcRaw = (r.geoArc ?? DEFAULT_MAPPING.geoArc) as Mapping["geoArc"];
+  const geoRegionRaw = (r.geoRegion ?? DEFAULT_MAPPING.geoRegion) as Mapping["geoRegion"];
   const measures = Array.isArray(matrixRaw.measures)
     ? Array.from(new Set(matrixRaw.measures.map((m) => Math.floor(num(m, -1))))).filter((m) => m >= 0 && m < mc)
     : DEFAULT_MAPPING.matrix.measures.filter((m) => m < mc);
@@ -95,23 +105,28 @@ export function normalizeMapping(raw: unknown, sheets: Sheets): Mapping {
     },
     matrix: { label: clamp(matrixRaw.label, 0, mc), measures: measures.sort((a, b) => a - b) },
     obs: {
-      group: clamp(obsRaw.group, 0, fc),
-      value: clamp(obsRaw.value, 1, fc),
+      group: clamp(obsRaw.group, 0, gc),
+      value: clamp(obsRaw.value, 1, gc),
     },
     geoPoint: {
-      place: clamp(geoPointRaw.place, 0, fc),
-      lat: clamp(geoPointRaw.lat, 1, fc),
-      lon: clamp(geoPointRaw.lon, 2, fc),
-      value: clamp(geoPointRaw.value, 3, fc),
+      place: clamp(geoPointRaw.place, 0, gc),
+      lat: clamp(geoPointRaw.lat, 1, gc),
+      lon: clamp(geoPointRaw.lon, 2, gc),
+      value: clamp(geoPointRaw.value, 3, gc),
     },
     geoArc: {
-      originPlace: clamp(geoArcRaw.originPlace, 0, fc),
-      originLat: clamp(geoArcRaw.originLat, 1, fc),
-      originLon: clamp(geoArcRaw.originLon, 2, fc),
-      destPlace: clamp(geoArcRaw.destPlace, 3, fc),
-      destLat: clamp(geoArcRaw.destLat, 4, fc),
-      destLon: clamp(geoArcRaw.destLon, 5, fc),
-      value: clamp(geoArcRaw.value, 6, fc),
+      originPlace: clamp(geoArcRaw.originPlace, 0, gc),
+      originLat: clamp(geoArcRaw.originLat, 1, gc),
+      originLon: clamp(geoArcRaw.originLon, 2, gc),
+      destPlace: clamp(geoArcRaw.destPlace, 3, gc),
+      destLat: clamp(geoArcRaw.destLat, 4, gc),
+      destLon: clamp(geoArcRaw.destLon, 5, gc),
+      value: clamp(geoArcRaw.value, 6, gc),
+    },
+    geoRegion: {
+      place: clamp(geoRegionRaw.place, 0, gc),
+      value: clamp(geoRegionRaw.value, 1, gc),
+      level: geoRegionRaw.level === "usState" ? "usState" : "country",
     },
   };
 }
@@ -135,6 +150,7 @@ export function normalizeStyle(raw: unknown): ChartStyle {
     labels: r.labels !== false,
     values: r.values !== false,
     sortDesc: r.sortDesc !== false,
+    geoZoom: Math.min(8, Math.max(0, num(r.geoZoom, DEFAULT_STYLE.geoZoom))),
   };
 }
 

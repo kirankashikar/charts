@@ -4,7 +4,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
 import { EngineChart } from "@/components/EngineChart";
-import { buildScene, flowLinks, groundColors, matrixData, obsGroups, geoPoints, geoArcs } from "@/lib/chart-builder";
+import {
+  buildScene,
+  flowLinks,
+  groundColors,
+  matrixData,
+  obsGroups,
+  geoPoints,
+  geoArcs,
+  geoRegionRows,
+} from "@/lib/chart-builder";
 import { chartDef, SheetKey, STEPS } from "@/lib/chart-types";
 import type { ClientChart } from "@/lib/charts";
 import { toSnapshot } from "@/lib/charts";
@@ -152,7 +161,9 @@ export function Wizard({
           ? `${geoPoints(chart.sheets, chart.mapping).length} places`
           : def.shape === "geoarc"
             ? `${geoArcs(chart.sheets, chart.mapping).length} routes`
-            : `${flowLinks(chart.sheets, chart.mapping).length} links`;
+            : def.shape === "georegion"
+              ? `${geoRegionRows(chart.sheets, chart.mapping).length} regions`
+              : `${flowLinks(chart.sheets, chart.mapping).length} links`;
 
   const syncNote =
     saveState === "saving"
@@ -447,6 +458,52 @@ export function Wizard({
                 </button>
               </div>
             </div>
+            {(def.shape === "geopoint" || def.shape === "geoarc" || def.shape === "georegion") && (
+              <div
+                style={{
+                  display: "flex",
+                  gap: 6,
+                  alignItems: "center",
+                  padding: "8px 20px",
+                  borderBottom: "1px solid var(--color-divider)",
+                  flexWrap: "wrap",
+                }}
+              >
+                <span style={{ fontSize: 11, color: "#7d7979", marginRight: 4 }}>Map</span>
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: "4px 10px", fontSize: 12 }}
+                  title="Zoom in"
+                  onClick={() => update({ style: { ...chart.style, geoZoom: Math.max(0.2, (chart.style.geoZoom || 1) * 0.7) } })}
+                >
+                  + Zoom in
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: "4px 10px", fontSize: 12 }}
+                  title="Zoom out"
+                  onClick={() => update({ style: { ...chart.style, geoZoom: Math.min(8, (chart.style.geoZoom || 1) * 1.4) } })}
+                >
+                  − Zoom out
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: "4px 10px", fontSize: 12 }}
+                  title="Fit to data"
+                  onClick={() => update({ style: { ...chart.style, geoZoom: 1 } })}
+                >
+                  Fit to data
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: "4px 10px", fontSize: 12 }}
+                  title="Show the whole world"
+                  onClick={() => update({ style: { ...chart.style, geoZoom: 0 } })}
+                >
+                  World view
+                </button>
+              </div>
+            )}
             <div
               style={{
                 flex: 1,
@@ -488,14 +545,16 @@ export function Wizard({
                     }}
                   >
                     <div style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: 17, marginBottom: 6 }}>
-                      {def.shape === "geopoint" || def.shape === "geoarc"
+                      {def.shape === "geopoint" || def.shape === "geoarc" || def.shape === "georegion"
                         ? "No geography in this sheet"
                         : "No observation-level rows"}
                     </div>
                     <div style={{ fontSize: 13, color: "#605d5d", maxWidth: "48ch", marginBottom: 16 }}>
                       {def.shape === "geopoint" || def.shape === "geoarc"
                         ? `A ${def.name.toLowerCase()} needs latitude and longitude columns plus a numeric value. Check the Map step.`
-                        : "A violin plot draws a distribution, so it needs one row per observation rather than the aggregated totals in this sheet."}
+                        : def.shape === "georegion"
+                          ? "A choropleth needs a place name and a numeric value, with names that match a country or US state. Check the Map step."
+                          : "A violin plot draws a distribution, so it needs one row per observation rather than the aggregated totals in this sheet."}
                     </div>
                     <button className="btn btn-primary" onClick={() => setStep(1)}>
                       Add the columns

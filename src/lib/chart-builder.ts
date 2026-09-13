@@ -7,7 +7,7 @@ import {
   Sheets,
   chartDef,
 } from "./chart-types";
-import { WORLD_COUNTRY_PATHS, WORLD_GRATICULE_PATH, WORLD_SPHERE_PATH, projectLatLon } from "./world-map";
+import { buildGeoLayer, buildChoroplethLayer, findNamedRegion, GEO_BOX } from "./world-map";
 
 export interface BaseShape {
   fill: string;
@@ -210,6 +210,27 @@ export function geoArcs(sheets: Sheets, mapping: Mapping): GeoArc[] {
   return out;
 }
 
+export interface GeoRegionRow {
+  place: string;
+  value: number;
+}
+
+/** Rows with a place name and a positive value — no coordinates required,
+ *  since a choropleth matches the name against a country or US state
+ *  boundary instead (see world-map.ts's findNamedRegion). Whether each name
+ *  actually matched is resolved by the caller, since that needs the atlas
+ *  data this pure data-extraction layer doesn't touch. */
+export function geoRegionRows(sheets: Sheets, mapping: Mapping): GeoRegionRow[] {
+  const m = mapping.geoRegion;
+  const out: GeoRegionRow[] = [];
+  for (const r of sheets.flows.rows) {
+    const place = r[m.place];
+    const v = parseFloat(r[m.value]);
+    if (place && isFinite(v) && v > 0) out.push({ place, value: v });
+  }
+  return out;
+}
+
 export function formatValue(v: number | string): string {
   const n = Number(v);
   if (!isFinite(n)) return String(v);
@@ -272,6 +293,7 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
   if (def.shape === "obs" && obsGroups(sheets, mapping).length === 0) return emptyScene(true);
   if (def.shape === "geopoint" && geoPoints(sheets, mapping).length === 0) return emptyScene(true);
   if (def.shape === "geoarc" && geoArcs(sheets, mapping).length === 0) return emptyScene(true);
+  if (def.shape === "georegion" && geoRegionRows(sheets, mapping).length === 0) return emptyScene(true);
 
   const out = emptyScene(false);
   const id = def.id;
@@ -770,20 +792,34 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
   }
 
   if (def.shape === "geopoint" || def.shape === "geoarc") {
+    const points = def.shape === "geopoint" ? geoPoints(sheets, mapping) : [];
+    const arcs = def.shape === "geoarc" ? geoArcs(sheets, mapping) : [];
+    const focusPoints: [number, number][] =
+      def.shape === "geopoint"
+        ? points.map((p) => [p.lat, p.lon])
+        : arcs.flatMap((a) => [
+            [a.originLat, a.originLon] as [number, number],
+            [a.destLat, a.destLon] as [number, number],
+          ]);
+    // Zooms to fit whatever the data actually covers instead of always
+    // showing the whole world — a handful of cities in one region get a
+    // legible close-up rather than eight overlapping labels lost on a
+    // world map. geoZoom 0 forces the whole-world view; see world-map.ts.
+    const geo = buildGeoLayer(focusPoints, style.geoZoom ?? 1);
+
     // A real Natural Earth basemap (via d3-geo + topojson, see world-map.ts)
     // instead of a bare lat/lon grid — countries under a light ocean fill,
     // points and arcs projected into that exact same coordinate space so
     // they land on the right country rather than a generic grid cell.
-    pushPath({ d: WORLD_SPHERE_PATH, fill: dark ? "#2d2b2b" : "#eae7e7" });
-    pushPath({ d: WORLD_GRATICULE_PATH, stroke: GRID, sw: 0.5, op: 0.5 });
-    WORLD_COUNTRY_PATHS.forEach((d) => pushPath({ d, fill: dark ? "#444141" : "#d7d3d3", stroke: GROUND, sw: 0.5 }));
-    pushPath({ d: WORLD_SPHERE_PATH, stroke: INK, sw: 1.2, op: 0.5 });
+    pushPath({ d: geo.spherePath, fill: dark ? "#2d2b2b" : "#eae7e7" });
+    pushPath({ d: geo.graticulePath, stroke: GRID, sw: 0.5, op: 0.5 });
+    geo.countryPaths.forEach((d) => pushPath({ d, fill: dark ? "#444141" : "#d7d3d3", stroke: GROUND, sw: 0.5 }));
+    pushPath({ d: geo.spherePath, stroke: INK, sw: 1.2, op: 0.5 });
 
     if (def.shape === "geopoint") {
-      const points = geoPoints(sheets, mapping);
       const maxV = Math.max(...points.map((p) => p.value));
       points.forEach((p, i) => {
-        const proj = projectLatLon(p.lat, p.lon);
+        const proj = geo.project(p.lat, p.lon);
         if (!proj) return;
         const [x, y] = proj;
         const r = 5 + 26 * Math.sqrt(p.value / maxV);
@@ -800,12 +836,11 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
         }
       });
     } else {
-      const arcs = geoArcs(sheets, mapping);
       const maxV = Math.max(...arcs.map((a) => a.value));
       const places = new Map<string, [number, number]>();
       arcs.forEach((a, i) => {
-        const origin = projectLatLon(a.originLat, a.originLon);
-        const dest = projectLatLon(a.destLat, a.destLon);
+        const origin = geo.project(a.originLat, a.originLon);
+        const dest = geo.project(a.destLat, a.destLon);
         if (!origin || !dest) return;
         const [x0, y0] = origin;
         const [x1, y1] = dest;
@@ -827,6 +862,52 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
       [...places.entries()].forEach(([name, [x, y]]) => {
         pushCircle({ cx: x, cy: y, r: 5, fill: INK, stroke: GROUND, sw: 1.5 });
         if (lab) text({ x, y: y - 10, text: name, anchor: "middle", size: 10, weight: 700 });
+      });
+    }
+  }
+
+  if (def.shape === "georegion") {
+    const rows = geoRegionRows(sheets, mapping);
+    const level = mapping.geoRegion.level;
+    const matches = rows
+      .map((r) => ({ feature: findNamedRegion(r.place, level), value: r.value, place: r.place }))
+      .filter((m): m is { feature: NonNullable<typeof m.feature>; value: number; place: string } => Boolean(m.feature));
+    const unmatched = rows.filter((r) => !findNamedRegion(r.place, level));
+
+    const geo = buildChoroplethLayer(matches, level, style.geoZoom ?? 1);
+    const accent = col(0);
+    const maxV = Math.max(...matches.map((m) => m.value), 1);
+
+    if (geo.spherePath) pushPath({ d: geo.spherePath, fill: dark ? "#2d2b2b" : "#eae7e7" });
+    pushPath({ d: geo.graticulePath, stroke: GRID, sw: 0.5, op: 0.5 });
+    geo.basePaths.forEach((d) => pushPath({ d, fill: dark ? "#3a3838" : "#e2dfdf", stroke: GROUND, sw: 0.5 }));
+    if (geo.spherePath) pushPath({ d: geo.spherePath, stroke: INK, sw: 1.2, op: 0.5 });
+
+    // Shade by intensity (share of the largest value) rather than a fixed
+    // per-region hue, so the map itself reads as a single value scale.
+    geo.matchedPaths.forEach(({ d, value }) => {
+      const t = Math.max(0.18, value / maxV);
+      pushPath({ d, fill: accent, op: t, stroke: INK, sw: 0.75 });
+    });
+    if (lab) {
+      geo.matchedPaths.forEach(({ centroid, place, value }) => {
+        text({
+          x: centroid[0],
+          y: centroid[1],
+          text: place + (showV ? "  " + formatValue(value) : ""),
+          anchor: "middle",
+          size: 10,
+          weight: 700,
+        });
+      });
+    }
+    if (unmatched.length) {
+      text({
+        x: GEO_BOX.x,
+        y: GEO_BOX.y + GEO_BOX.h + 14,
+        text: `Not matched: ${unmatched.map((r) => r.place).join(", ")}`,
+        size: 10,
+        fill: MUTED,
       });
     }
   }
