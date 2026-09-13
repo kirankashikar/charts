@@ -73,6 +73,12 @@ const RAW: Record<string, (Partial<IconPath> & { d: string })[]> = {
     { d: "M12 24m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0", fill: k },
     { d: "M48 22m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0", fill: k },
   ],
+  choropleth: [
+    { d: "M4 8h52v20H4z", stroke: k, sw: 1.2 },
+    { d: "M8 12 L18 10 L22 18 L14 25 L7 21Z", fill: a },
+    { d: "M24 11 L36 12 L38 21 L27 26 L22 19Z", fill: k },
+    { d: "M39 10 L50 12 L52 20 L44 24 L38 20Z", fill: a, stroke: "#f3f2f2", sw: 0.6 },
+  ],
 };
 
 export function chartIcon(id: string): IconPath[] {
