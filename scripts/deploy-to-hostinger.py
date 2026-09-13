@@ -75,33 +75,66 @@ def deploy_via_ssh(host, port, user, password, local_dir, target_subdomains=['ch
         f"{user}@{host}"
     ]
     
+    scp_base = [
+        "scp",
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=/dev/null",
+        "-o", "LogLevel=ERROR",
+        "-P", str(port),
+    ]
+    remote_archive = "charts-dist-upload.tar.gz"
+
     try:
+        # Build the archive once locally and upload it as a single file. Piping
+        # a live `tar -czf - | ssh ... tar -xzf -` makes the remote host fork a
+        # gzip child process to decompress; on a shared-hosting account that's
+        # already near its process/resource ceiling that fork can fail with
+        # "Cannot fork: Resource temporarily unavailable". Extracting via
+        # Python's tarfile module below decompresses in-process (zlib) instead,
+        # so it needs no extra remote fork.
+        archive_path = os.path.join(tempfile.gettempdir(), remote_archive)
+        log("📦 Building local archive...")
+        build = subprocess.run(["tar", "-czf", archive_path, "-C", local_dir, "."], capture_output=True, text=True)
+        if build.returncode != 0:
+            log(f"❌ Local archive build failed: {build.stderr}")
+            return False
+
+        log(f"⬆️ Uploading archive to {user}@{host}:~/{remote_archive} ...")
+        upload = subprocess.run(scp_base + [archive_path, f"{user}@{host}:{remote_archive}"], env=env, capture_output=True, text=True)
+        if upload.returncode != 0:
+            log(f"❌ SCP upload failed: {upload.stderr}")
+            return False
+
         for sub in target_subdomains:
             target_dir = f"domains/fluidpalette.com/public_html/{sub}"
             log(f"📁 Ensuring remote directory ~/{target_dir} exists...")
             subprocess.run(ssh_base + [f"mkdir -p ~/{target_dir}"], env=env, capture_output=True, text=True)
-            
+
             # Remove Hostinger default.php placeholder, plus any stale static
             # fallback page/.htaccess from older deploys that would otherwise
             # shadow the Next.js app for every route.
             log(f"🗑️ Removing default.php placeholder and stale static overrides in ~/{target_dir} ...")
             subprocess.run(ssh_base + [f"rm -f ~/{target_dir}/default.php ~/{target_dir}/default.html ~/{target_dir}/index.html ~/{target_dir}/.htaccess"], env=env, capture_output=True)
-            
-            # Stream tar archive
-            log(f"📦 Streaming bundle to ~/{target_dir} ...")
+
+            log(f"📤 Extracting archive into ~/{target_dir} ...")
             start_time = time.time()
-            p_tar_local = subprocess.Popen(["tar", "-czf", "-", "-C", local_dir, "."], stdout=subprocess.PIPE)
-            p_tar_remote = subprocess.Popen(ssh_base + [f"tar -xzf - -C ~/{target_dir}"], stdin=p_tar_local.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
-            p_tar_local.stdout.close()
-            out, err = p_tar_remote.communicate()
-            
-            if p_tar_remote.returncode != 0:
-                log(f"❌ Remote tar extraction to {sub} failed: {err.decode('utf-8', errors='ignore')}")
+            extract_py = (
+                "import tarfile; "
+                f"tarfile.open('{remote_archive}', 'r:gz').extractall('{target_dir}')"
+            )
+            result = subprocess.run(ssh_base + [f"cd ~ && python3 -c \"{extract_py}\""], env=env, capture_output=True, text=True)
+            if result.returncode != 0:
+                log(f"❌ Remote extraction to {sub} failed: {result.stderr}")
                 return False
-                
+
             elapsed = round(time.time() - start_time, 2)
-            log(f"🎉 Remote tar extraction for '{sub}' completed in {elapsed}s!")
-            
+            log(f"🎉 Extraction for '{sub}' completed in {elapsed}s!")
+
+        subprocess.run(ssh_base + [f"rm -f ~/{remote_archive}"], env=env, capture_output=True)
+        try:
+            os.remove(archive_path)
+        except OSError:
+            pass
         return True
     except Exception as e:
         log(f"⚠️ SSH deployment failed with exception: {e}")
