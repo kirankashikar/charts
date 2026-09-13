@@ -2,7 +2,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { TopBar } from "@/components/TopBar";
-import { initialsOf } from "@/lib/user";
+import { getGuestUserId, initialsOf } from "@/lib/user";
 import { createChartAction } from "@/lib/actions";
 import { toClientChart, toSnapshot } from "@/lib/charts";
 import { paletteColors, thumbnailBars } from "@/lib/chart-builder";
@@ -17,14 +17,10 @@ export default async function Dashboard() {
 
   let charts: Array<Awaited<ReturnType<typeof prisma.chart.findMany>>[number]> = [];
   try {
-    if (userId) {
+    const scopedUserId = userId ?? (await getGuestUserId());
+    if (scopedUserId) {
       charts = await prisma.chart.findMany({
-        where: { userId },
-        orderBy: { updatedAt: "desc" },
-      });
-    } else {
-      charts = await prisma.chart.findMany({
-        take: 6,
+        where: { userId: scopedUserId },
         orderBy: { updatedAt: "desc" },
       });
     }

@@ -5,6 +5,7 @@ import { auth, signOut } from "./auth";
 import { prisma } from "./prisma";
 import { DEFAULT_MAPPING, DEFAULT_SHEETS, DEFAULT_STYLE } from "./chart-types";
 import { asJson } from "./json";
+import { GUEST_EMAIL } from "./user";
 
 export async function createChartAction() {
   const session = await auth();
@@ -13,10 +14,10 @@ export async function createChartAction() {
   if (!userId) {
     try {
       const guestUser = await prisma.user.upsert({
-        where: { email: "guest@fluidpalette.com" },
+        where: { email: GUEST_EMAIL },
         update: {},
         create: {
-          email: "guest@fluidpalette.com",
+          email: GUEST_EMAIL,
           name: "Guest Presenter",
         },
       });

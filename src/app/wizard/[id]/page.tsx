@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { toClientChart } from "@/lib/charts";
 import { DEFAULT_SHEETS, DEFAULT_MAPPING, DEFAULT_STYLE } from "@/lib/chart-types";
-import { initialsOf } from "@/lib/user";
+import { getGuestUserId, initialsOf } from "@/lib/user";
 import { Wizard } from "@/components/wizard/Wizard";
 
 export const dynamic = "force-dynamic";
@@ -23,9 +23,8 @@ export default async function WizardPage({ params }: PageProps<"/wizard/[id]">) 
 
   let row = null;
   try {
-    row = await prisma.chart.findFirst({
-      where: userId ? { id, userId } : { id },
-    });
+    const scopedUserId = userId ?? (await getGuestUserId());
+    row = scopedUserId ? await prisma.chart.findFirst({ where: { id, userId: scopedUserId } }) : null;
   } catch {
     row = null;
   }
