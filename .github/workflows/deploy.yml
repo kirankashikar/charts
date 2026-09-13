@@ -1,4 +1,4 @@
-name: Build, Test & Deploy to Hostinger
+name: Build, Test & Deploy to Vercel
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: deploy-charts-hostinger
+  group: deploy-charts-vercel
   cancel-in-progress: true
 
 env:
@@ -18,7 +18,7 @@ env:
 
 jobs:
   build-and-deploy:
-    name: 🚀 Build, Test & Deploy chart.fluidpalette.com
+    name: 🚀 Build, Test & Deploy charts.fluidpalette.com
     runs-on: ubuntu-latest
 
     steps:
@@ -30,11 +30,6 @@ jobs:
         with:
           node-version: 22
           cache: "npm"
-
-      - name: 🐍 Setup Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
 
       - name: 📦 Install Dependencies
         run: npm ci
@@ -48,64 +43,22 @@ jobs:
       - name: 🧪 Run Unit Tests
         run: npm test
 
-      - name: 🏗️ Build Next.js Application
-        run: npm run build
+      - name: 🗄️ Apply Database Migrations
+        run: npx prisma migrate deploy
 
-      - name: 📁 Prepare Deployment Directory
+      - name: 🚀 Deploy to Vercel
         run: |
-          mkdir -p dist/charts-dist
-          cp -r package.json package-lock.json next.config.ts tsconfig.json ecosystem.config.js server.js .env.example public prisma src dist/charts-dist/
-          # Copy .next but exclude .next/cache to keep upload lean and fast
-          mkdir -p dist/charts-dist/.next
-          cp -r .next/static .next/server .next/standalone .next/BUILD_ID .next/routes-manifest.json dist/charts-dist/.next/ 2>/dev/null || cp -r .next dist/charts-dist/
-          rm -rf dist/charts-dist/.next/cache 2>/dev/null || true
-          mkdir -p dist/charts-dist/deploy
-          cp deploy/nginx-charts.fluidpalette.com.conf deploy/HOSTINGER_DEPLOYMENT_GUIDE.md dist/charts-dist/deploy/
-
-      - name: 🔐 Write Server Config (.env)
+          npm install -g vercel@latest
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel build --prod --token="$VERCEL_TOKEN"
+          vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
-          AUTH_GOOGLE_ID: ${{ secrets.AUTH_GOOGLE_ID }}
-          AUTH_GOOGLE_SECRET: ${{ secrets.AUTH_GOOGLE_SECRET }}
-        run: |
-          cat > dist/charts-dist/.env << ENV_EOF
-          DATABASE_URL="${DATABASE_URL}"
-          AUTH_SECRET="${AUTH_SECRET}"
-          NEXT_PUBLIC_APP_URL="https://charts.fluidpalette.com"
-          AUTH_TRUST_HOST="true"
-          PORT="3000"
-          NODE_ENV="production"
-          AUTH_GOOGLE_ID="${AUTH_GOOGLE_ID}"
-          AUTH_GOOGLE_SECRET="${AUTH_GOOGLE_SECRET}"
-          ENV_EOF
-
-      - name: 🚀 Deploy to Hostinger (Python Streamer)
-        run: python3 scripts/deploy-to-hostinger.py
-        env:
-          HOSTINGER_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
-          HOSTINGER_SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT }}
-          HOSTINGER_SSH_USERNAME: ${{ secrets.HOSTINGER_SSH_USERNAME }}
-          HOSTINGER_SSH_PASSWORD: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-          HOSTINGER_FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER }}
-          HOSTINGER_FTP_USERNAME: ${{ secrets.HOSTINGER_FTP_USERNAME }}
-          HOSTINGER_FTP_PASSWORD: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
-          LOCAL_DIR: ./dist/charts-dist
-
-      - name: 📋 Write Deployment Summary
-        if: always()
-        run: |
-          if [ -f deploy.log ]; then
-            echo "### Deployment Execution Log" >> "$GITHUB_STEP_SUMMARY"
-            echo '```text' >> "$GITHUB_STEP_SUMMARY"
-            cat deploy.log >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-          fi
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: 🌐 Post-Deployment Endpoint Health Check
         run: |
-          echo "Verifying live endpoint response for https://chart.fluidpalette.com..."
-          curl -s -o /dev/null -w "chart.fluidpalette.com HTTP response: %{http_code}\n" https://chart.fluidpalette.com || true
           echo "Verifying live endpoint response for https://charts.fluidpalette.com..."
           curl -s -o /dev/null -w "charts.fluidpalette.com HTTP response: %{http_code}\n" https://charts.fluidpalette.com || true
           echo "Endpoint check finished."

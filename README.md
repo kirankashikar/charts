@@ -55,16 +55,15 @@ npm start                   # serves on PORT, default 3000
 
 Self-hosting behind a reverse proxy needs `AUTH_TRUST_HOST=true` and `NEXT_PUBLIC_APP_URL` set to the public origin, so published links are generated against the real domain. Node 20.9+ is required. PNG export uses `sharp`, which needs the platform's prebuilt binary — install dependencies on the target platform rather than copying `node_modules` across architectures.
 
-### Hostinger (charts.fluidpalette.com)
+### Vercel (charts.fluidpalette.com)
 
-The app is a long-running Node server, so it needs a **VPS or a Node.js hosting plan** — Hostinger's PHP shared hosting can't run it.
+The app deploys to Vercel, which runs Next.js natively — no VPS, PM2, or reverse proxy to manage. `.github/workflows/deploy.yml` builds, lints, tests, applies pending Prisma migrations, and deploys to Vercel on every push to `main`.
 
-1. **Database** — hPanel → Databases → MySQL: create `chartstudio` and a user, then set `DATABASE_URL="mysql://user:password@localhost:3306/chartstudio"`.
-2. **DNS** — an `A` record for `charts` on `fluidpalette.com` pointing at the server's IP.
+1. **Database** — a MySQL instance reachable from Vercel's servers (not `localhost` — Vercel functions are external to wherever the DB is hosted). Set `DATABASE_URL` accordingly.
+2. **DNS** — an `A` record for `charts` on `fluidpalette.com` pointing at Vercel (`76.76.21.21`), added as a custom domain on the Vercel project.
 3. **Google OAuth** — add `https://charts.fluidpalette.com/api/auth/callback/google` as an authorized redirect URI on the OAuth client.
-4. **Environment** — on the server, `.env` with `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_TRUST_HOST=true`, and `NEXT_PUBLIC_APP_URL=https://charts.fluidpalette.com`.
-5. **Run it** — `npm ci && npm run db:migrate && npm run build`, then keep `npm start` alive with pm2 or a systemd unit.
-6. **Proxy and TLS** — Nginx `proxy_pass http://127.0.0.1:3000` for the subdomain, forwarding `Host` and `X-Forwarded-Proto`, with a Let's Encrypt certificate. Auth.js rejects OAuth callbacks over plain HTTP, so TLS is required before sign-in works.
+4. **Environment** — set on the Vercel project (Production): `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `NEXT_PUBLIC_APP_URL=https://charts.fluidpalette.com`.
+5. **CI secrets** — for the GitHub Actions workflow to deploy: `VERCEL_TOKEN` (personal token from vercel.com/account/tokens), `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` (from `.vercel/project.json` after `vercel link`), plus `DATABASE_URL` and `AUTH_SECRET` for the migration step.
 
 ## Stack
 
