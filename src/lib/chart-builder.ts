@@ -14,6 +14,8 @@ export interface BaseShape {
   stroke: string;
   sw: number;
   op: number;
+  /** Tooltip text ("item: value") shown natively on hover via <title>. */
+  tip?: string;
 }
 export interface PathShape extends BaseShape {
   d: string;
@@ -381,21 +383,24 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
         d: `M${x0},${s0}C${mx},${s0} ${mx},${t0} ${x1},${t0}L${x1},${t1}C${mx},${t1} ${mx},${s1} ${x0},${s1}Z`,
         fill: col(i),
         op: 0.32,
+        tip: `${l.s} → ${l.t}: ${formatValue(l.v)}`,
       });
     });
     order.forEach((n) => {
       const nd = nodes[n];
-      pushRect({ x: nd.x, y: nd.y, w: nd.w, h: nd.h, fill: INK });
-      if (lab) {
-        text({
-          x: nd.d === maxD ? nd.x - 8 : nd.x + nd.w + 8,
-          y: nd.y + nd.h / 2 + 4,
-          text: n + (showV ? "  " + formatValue(Math.max(nd.in, nd.out)) : ""),
-          anchor: nd.d === maxD ? "end" : "start",
-          size: 12,
-          weight: 600,
-        });
-      }
+      pushRect({ x: nd.x, y: nd.y, w: nd.w, h: nd.h, fill: INK, tip: `${n}: ${formatValue(Math.max(nd.in, nd.out))}` });
+      // Every node gets its name as a heading beside its bar, independent
+      // of the "Labels" toggle (only the value suffix stays gated) — kept
+      // vertically centered on the bar rather than above it, since stacked
+      // nodes in the same column can sit only a few px apart.
+      text({
+        x: nd.d === maxD ? nd.x - 8 : nd.x + nd.w + 8,
+        y: nd.y + nd.h / 2 + 4,
+        text: n + (showV ? "  " + formatValue(Math.max(nd.in, nd.out)) : ""),
+        anchor: nd.d === maxD ? "end" : "start",
+        size: 12,
+        weight: 700,
+      });
     });
   }
 
@@ -423,11 +428,18 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
       gs.forEach((g, i) => {
         const sweep = (g.v / total) * Math.PI * 2,
           a1 = a + sweep;
-        pushPath({ d: arcPath(cx, cy, r0, r1, a, a1), fill: col(i), stroke: GROUND, sw: 2 });
+        pushPath({ d: arcPath(cx, cy, r0, r1, a, a1), fill: col(i), stroke: GROUND, sw: 2, tip: `${g.name}: ${formatValue(g.v)}` });
         let ka = a;
         g.kids.forEach((k) => {
           const ks = (k.v / total) * Math.PI * 2;
-          pushPath({ d: arcPath(cx, cy, r1 + 2, r2, ka, ka + ks), fill: col(i), op: 0.45, stroke: GROUND, sw: 2 });
+          pushPath({
+            d: arcPath(cx, cy, r1 + 2, r2, ka, ka + ks),
+            fill: col(i),
+            op: 0.45,
+            stroke: GROUND,
+            sw: 2,
+            tip: `${k.name}: ${formatValue(k.v)}`,
+          });
           if (lab && ks > 0.16) {
             const mid = ka + ks / 2,
               deg = (mid * 180) / Math.PI;
@@ -473,12 +485,12 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
       let acc = 0;
       gs.forEach((g, i) => {
         const gw = (g.v / total) * w;
-        pushRect({ x: x + acc, y, w: gw - 3, h, fill: col(i), op: 0.22 });
+        pushRect({ x: x + acc, y, w: gw - 3, h, fill: col(i), op: 0.22, tip: `${g.name}: ${formatValue(g.v)}` });
         let ky = y;
         const kids = g.kids.slice().sort((a, b) => b.v - a.v);
         kids.forEach((k) => {
           const kh = (k.v / g.v) * h;
-          pushRect({ x: x + acc, y: ky, w: gw - 3, h: kh - 3, fill: col(i), op: 0.85 });
+          pushRect({ x: x + acc, y: ky, w: gw - 3, h: kh - 3, fill: col(i), op: 0.85, tip: `${k.name}: ${formatValue(k.v)}` });
           if (lab && kh > 26 && gw > 60) {
             text({ x: x + acc + 10, y: ky + 20, text: k.name, size: 11.5, weight: 800, fill: "#f3f2f2" });
             if (showV) {
@@ -504,13 +516,20 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
         const gr = 34 + 58 * Math.sqrt(g.v / maxV);
         const gx = cx + (R - gr * 0.55) * Math.cos(ang),
           gy = cy + (R - gr * 0.55) * Math.sin(ang) * 0.74;
-        pushCircle({ cx: gx, cy: gy, r: gr, fill: col(i), op: 0.2, stroke: col(i), sw: 1.5 });
+        pushCircle({ cx: gx, cy: gy, r: gr, fill: col(i), op: 0.2, stroke: col(i), sw: 1.5, tip: `${g.name}: ${formatValue(g.v)}` });
         const kmax = Math.max(...g.kids.map((k) => k.v));
         g.kids.forEach((k, j) => {
           const kr = gr * 0.34 * Math.sqrt(k.v / kmax) + 6;
           const ka = (j / Math.max(1, g.kids.length)) * Math.PI * 2;
           const off = g.kids.length > 1 ? gr - kr - 5 : 0;
-          pushCircle({ cx: gx + off * Math.cos(ka), cy: gy + off * Math.sin(ka), r: kr, fill: col(i), op: 0.9 });
+          pushCircle({
+            cx: gx + off * Math.cos(ka),
+            cy: gy + off * Math.sin(ka),
+            r: kr,
+            fill: col(i),
+            op: 0.9,
+            tip: `${k.name}: ${formatValue(k.v)}`,
+          });
         });
         if (lab) text({ x: gx, y: gy + gr + 15, text: g.name, anchor: "middle", size: 11, weight: 800 });
       });
@@ -543,7 +562,7 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
           nodes[n].a0 = a;
           nodes[n].a1 = a + sw;
           nodes[n].cur = a;
-          pushPath({ d: arcPath(cx, cy, R, R + 15, a, a + sw), fill: col(i) });
+          pushPath({ d: arcPath(cx, cy, R, R + 15, a, a + sw), fill: col(i), tip: `${n}: ${formatValue(nodes[n].v)}` });
           if (lab) {
             const mid = a + sw / 2,
               deg = (mid * 180) / Math.PI,
@@ -583,6 +602,7 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
             )},${y0.toFixed(1)}Z`,
             fill: col(i),
             op: 0.3,
+            tip: `${l.s} → ${l.t}: ${formatValue(l.v)}`,
           });
         });
       } else {
@@ -600,11 +620,12 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
             stroke: col(i),
             sw: Math.max(1, (l.v / maxV) * 9),
             op: 0.5,
+            tip: `${l.s} → ${l.t}: ${formatValue(l.v)}`,
           });
         });
         order.forEach((n, i) => {
           const nd = nodes[n];
-          pushCircle({ cx: nd.x, cy: nd.y, r: nd.r, fill: col(i), stroke: GROUND, sw: 2 });
+          pushCircle({ cx: nd.x, cy: nd.y, r: nd.r, fill: col(i), stroke: GROUND, sw: 2, tip: `${n}: ${formatValue(nd.v)}` });
           if (lab) text({ x: nd.x, y: nd.y + nd.r + 14, text: n, anchor: "middle", size: 10.5, weight: 600 });
         });
       }
@@ -657,8 +678,8 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
               )}`
           )
           .join("L");
-        pushPath({ d: `M${pts}Z`, fill: col(k), op: 0.16 });
-        pushPath({ d: `M${pts}Z`, stroke: col(k), sw: 2.5 });
+        pushPath({ d: `M${pts}Z`, fill: col(k), op: 0.16, tip: r.label });
+        pushPath({ d: `M${pts}Z`, stroke: col(k), sw: 2.5, tip: r.label });
       });
       M.rows.forEach((r, k) => {
         pushRect({ x: 14, y: 16 + k * 19, w: 11, h: 11, fill: col(k) });
@@ -686,7 +707,7 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
             return `${ax(i).toFixed(1)},${(bot - (v / mx) * (bot - top)).toFixed(1)}`;
           })
           .join("L");
-        pushPath({ d: `M${pts}`, stroke: col(k), sw: 2.5, op: 0.9 });
+        pushPath({ d: `M${pts}`, stroke: col(k), sw: 2.5, op: 0.9, tip: r.label });
         if (lab) {
           text({
             x: padL - 10,
@@ -717,7 +738,15 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
         let y = top;
         posVals[k].forEach((v, i) => {
           const hh = (v / totals[k]) * (bot - top);
-          pushRect({ x, y, w: cw, h: Math.max(0, hh - 2), fill: col(i), op: 0.9 });
+          pushRect({
+            x,
+            y,
+            w: cw,
+            h: Math.max(0, hh - 2),
+            fill: col(i),
+            op: 0.9,
+            tip: `${r.label} · ${M.axes[i]}: ${formatValue(v)}`,
+          });
           if (lab && hh > 22 && cw > 54) {
             text({
               x: x + 8,
@@ -775,7 +804,14 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
         left.push(`${(gx - w).toFixed(1)},${y(v).toFixed(1)}`);
         right.unshift(`${(gx + w).toFixed(1)},${y(v).toFixed(1)}`);
       }
-      pushPath({ d: `M${left.join("L")}L${right.join("L")}Z`, fill: col(i), op: 0.28, stroke: col(i), sw: 1.5 });
+      pushPath({
+        d: `M${left.join("L")}L${right.join("L")}Z`,
+        fill: col(i),
+        op: 0.28,
+        stroke: col(i),
+        sw: 1.5,
+        tip: `${g.group}: n=${g.values.length}`,
+      });
 
       const median = sorted[Math.floor(sorted.length / 2)];
       out.lines.push({
@@ -825,7 +861,7 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
         if (!proj) return;
         const [x, y] = proj;
         const r = 5 + 26 * Math.sqrt(p.value / maxV);
-        pushCircle({ cx: x, cy: y, r, fill: col(i), op: 0.7, stroke: col(i), sw: 1.5 });
+        pushCircle({ cx: x, cy: y, r, fill: col(i), op: 0.7, stroke: col(i), sw: 1.5, tip: `${p.place}: ${formatValue(p.value)}` });
         if (lab) {
           text({
             x,
@@ -859,10 +895,11 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
           stroke: col(i),
           sw: Math.max(1, (a.value / maxV) * 7),
           op: 0.7,
+          tip: `${a.originPlace} → ${a.destPlace}: ${formatValue(a.value)}`,
         });
       });
       [...places.entries()].forEach(([name, [x, y]]) => {
-        pushCircle({ cx: x, cy: y, r: 5, fill: INK, stroke: GROUND, sw: 1.5 });
+        pushCircle({ cx: x, cy: y, r: 5, fill: INK, stroke: GROUND, sw: 1.5, tip: name });
         if (lab) text({ x, y: y - 10, text: name, anchor: "middle", size: 10, weight: 700 });
       });
     }
@@ -887,9 +924,9 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
 
     // Shade by intensity (share of the largest value) rather than a fixed
     // per-region hue, so the map itself reads as a single value scale.
-    geo.matchedPaths.forEach(({ d, value }) => {
+    geo.matchedPaths.forEach(({ d, value, place }) => {
       const t = Math.max(0.18, value / maxV);
-      pushPath({ d, fill: accent, op: t, stroke: INK, sw: 0.75 });
+      pushPath({ d, fill: accent, op: t, stroke: INK, sw: 0.75, tip: `${place}: ${formatValue(value)}` });
     });
     if (lab) {
       geo.matchedPaths.forEach(({ centroid, place, value }) => {
