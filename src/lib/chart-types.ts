@@ -193,19 +193,49 @@ const FUNNEL_SEED: Sheet = {
   ],
 };
 
-const HIERARCHY_SEED: Sheet = {
+const SUNBURST_SEED: Sheet = {
   name: "Flows",
-  cols: ["Department", "Team", "Budget"],
+  cols: ["Region", "Market", "Revenue"],
   types: ["text", "text", "number"],
   rows: [
-    ["Engineering", "Platform", "1200000"],
-    ["Engineering", "Product", "950000"],
-    ["Engineering", "Data", "600000"],
-    ["Marketing", "Growth", "700000"],
-    ["Marketing", "Brand", "450000"],
-    ["Sales", "Enterprise", "1100000"],
-    ["Sales", "SMB", "500000"],
-    ["Operations", "Support", "380000"],
+    ["Americas", "United States", "5200000"],
+    ["Americas", "Brazil", "980000"],
+    ["Americas", "Canada", "760000"],
+    ["EMEA", "Germany", "1400000"],
+    ["EMEA", "United Kingdom", "1150000"],
+    ["EMEA", "UAE", "540000"],
+    ["APAC", "Japan", "1600000"],
+    ["APAC", "India", "890000"],
+  ],
+};
+
+const TREEMAP_SEED: Sheet = {
+  name: "Flows",
+  cols: ["Sector", "Holding", "Market value"],
+  types: ["text", "text", "number"],
+  rows: [
+    ["Technology", "Nimbus Cloud", "4100000"],
+    ["Technology", "Vertex Chips", "2600000"],
+    ["Healthcare", "Alden Bio", "1800000"],
+    ["Healthcare", "Cura Labs", "950000"],
+    ["Energy", "Solara Grid", "1300000"],
+    ["Energy", "Petrolux", "700000"],
+    ["Retail", "Marketwell", "600000"],
+  ],
+};
+
+const PACK_SEED: Sheet = {
+  name: "Flows",
+  cols: ["Product line", "SKU", "Units sold"],
+  types: ["text", "text", "number"],
+  rows: [
+    ["Footwear", "Trail runner", "18400"],
+    ["Footwear", "Studio flat", "9200"],
+    ["Footwear", "Court classic", "12600"],
+    ["Apparel", "Packable jacket", "7400"],
+    ["Apparel", "Base layer", "5100"],
+    ["Accessories", "Trail pack", "3200"],
+    ["Accessories", "Cap", "6800"],
   ],
 };
 
@@ -226,6 +256,23 @@ const RELATIONSHIP_SEED: Sheet = {
   ],
 };
 
+const NETWORK_SEED: Sheet = {
+  name: "Flows",
+  cols: ["Page", "Links to", "Clicks"],
+  types: ["text", "text", "number"],
+  rows: [
+    ["Homepage", "Pricing", "3400"],
+    ["Homepage", "Docs", "2100"],
+    ["Homepage", "Blog", "1200"],
+    ["Pricing", "Sign-up", "1900"],
+    ["Docs", "API reference", "1500"],
+    ["Docs", "Sign-up", "700"],
+    ["Blog", "Docs", "600"],
+    ["Blog", "Pricing", "450"],
+    ["API reference", "Sign-up", "500"],
+  ],
+};
+
 const PROFILE_SEED: Sheet = {
   name: "Segments",
   cols: ["Segment", "Reach", "Engagement", "Retention", "Revenue", "Cost"],
@@ -238,24 +285,49 @@ const PROFILE_SEED: Sheet = {
   ],
 };
 
-/** Seed data per flow-shaped chart type — each tells a story that type draws
- *  well (a funnel for sankey, a two-level tree for the hierarchy charts, a
- *  many-to-many web for the relationship charts). */
-export const FLOW_SEEDS: Record<string, Sheet> = {
-  sankey: FUNNEL_SEED,
-  sunburst: HIERARCHY_SEED,
-  treemap: HIERARCHY_SEED,
-  pack: HIERARCHY_SEED,
-  chord: RELATIONSHIP_SEED,
-  network: RELATIONSHIP_SEED,
+const MARIMEKKO_SEED: Sheet = {
+  name: "Segments",
+  cols: ["Category", "Market size", "North America", "Europe", "Asia", "Growth"],
+  types: ["text", "number", "number", "number", "number", "number"],
+  rows: [
+    ["Smartphones", "480", "38", "29", "33", "6"],
+    ["Laptops", "260", "42", "31", "27", "3"],
+    ["Tablets", "90", "35", "27", "38", "-2"],
+    ["Wearables", "55", "30", "22", "48", "14"],
+  ],
 };
 
-/** Seed data per matrix-shaped chart type. One profile dataset reads well
- *  across all three (lines per segment, mekko columns, or a radar profile). */
+const RADAR_SEED: Sheet = {
+  name: "Segments",
+  cols: ["Product", "Speed", "Battery", "Camera", "Display", "Price"],
+  types: ["text", "number", "number", "number", "number", "number"],
+  rows: [
+    ["Aria X", "88", "72", "94", "90", "60"],
+    ["Nova 5", "76", "91", "70", "82", "78"],
+    ["Pulse Mini", "64", "85", "58", "66", "92"],
+  ],
+};
+
+/** Seed data per flow-shaped chart type — each is its own story shaped the
+ *  way that chart draws it, so the column order itself shows what to paste
+ *  in: a funnel for sankey, nested categories for the hierarchy charts, a
+ *  many-to-many web for the relationship charts. */
+export const FLOW_SEEDS: Record<string, Sheet> = {
+  sankey: FUNNEL_SEED,
+  sunburst: SUNBURST_SEED,
+  treemap: TREEMAP_SEED,
+  pack: PACK_SEED,
+  chord: RELATIONSHIP_SEED,
+  network: NETWORK_SEED,
+};
+
+/** Seed data per matrix-shaped chart type — one label column plus five
+ *  measures each, matching the default column mapping so switching types
+ *  doesn't require re-mapping columns before the preview draws. */
 export const MATRIX_SEEDS: Record<string, Sheet> = {
   parallel: PROFILE_SEED,
-  marimekko: PROFILE_SEED,
-  radar: PROFILE_SEED,
+  marimekko: MARIMEKKO_SEED,
+  radar: RADAR_SEED,
 };
 
 const FLOW_SEED_LIST = Object.values(FLOW_SEEDS);
