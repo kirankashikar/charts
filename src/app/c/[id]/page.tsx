@@ -6,6 +6,7 @@ import { groundColors } from "@/lib/chart-builder";
 import { chartDef } from "@/lib/chart-types";
 import { EngineChart } from "@/components/EngineChart";
 import { relativeTime } from "@/lib/time";
+import { getGuestUserId } from "@/lib/user";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,10 @@ export default async function ViewerPage({ params, searchParams }: PageProps<"/c
   }
 
   const session = await auth();
-  const viewerId = session?.user?.id ?? null;
+  // Consistent with the dashboard/wizard/save routes: a guest's charts are
+  // owned by the shared guest account, so any guest counts as its owner —
+  // otherwise a guest could never preview their own unpublished draft.
+  const viewerId = session?.user?.id ?? (await getGuestUserId());
   const isOwner = viewerId === chart.userId;
 
   if (!canView(chart.access, chart.user.email, chart.userId, viewerId, session?.user?.email ?? null)) {

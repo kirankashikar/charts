@@ -11,15 +11,20 @@ import {
   toClientChart,
 } from "@/lib/charts";
 import { asJson } from "@/lib/json";
+import { getGuestUserId } from "@/lib/user";
 
 type Params = { params: Promise<{ id: string }> };
 
 async function ownedChart(id: string) {
   const session = await auth();
-  if (!session?.user?.id) return { error: NextResponse.json({ error: "Not signed in" }, { status: 401 }) };
-  const chart = await prisma.chart.findFirst({ where: { id, userId: session.user.id } });
+  // Instant-access charts belong to the shared guest account rather than a
+  // signed-in session — without this, every autosave for a guest chart 401s
+  // and edits are silently never persisted.
+  const userId = session?.user?.id ?? (await getGuestUserId());
+  if (!userId) return { error: NextResponse.json({ error: "Not signed in" }, { status: 401 }) };
+  const chart = await prisma.chart.findFirst({ where: { id, userId } });
   if (!chart) return { error: NextResponse.json({ error: "Not found" }, { status: 404 }) };
-  return { chart, userId: session.user.id };
+  return { chart, userId };
 }
 
 export async function GET(_request: Request, { params }: Params) {

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { buildScene, sceneToSvg } from "@/lib/chart-builder";
 import { canView, snapshotFromJson, toClientChart, toSnapshot } from "@/lib/charts";
+import { getGuestUserId } from "@/lib/user";
 
 export const runtime = "nodejs";
 
@@ -26,7 +27,10 @@ export async function GET(request: Request, { params }: Params) {
   if (!chart) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const session = await auth();
-  const viewerId = session?.user?.id ?? null;
+  // Consistent with the dashboard/wizard/save routes: a guest's charts are
+  // owned by the shared guest account, so any guest counts as its owner —
+  // otherwise a guest could never preview their own unpublished draft PNG.
+  const viewerId = session?.user?.id ?? (await getGuestUserId());
   const isOwner = viewerId === chart.userId;
   if (!canView(chart.access, chart.user.email, chart.userId, viewerId, session?.user?.email ?? null)) {
     return NextResponse.json({ error: "Not available" }, { status: 403 });

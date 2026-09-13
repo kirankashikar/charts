@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { toClientChart, toSnapshot } from "@/lib/charts";
 import { asJson } from "@/lib/json";
+import { getGuestUserId } from "@/lib/user";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -14,9 +15,10 @@ type Params = { params: Promise<{ id: string }> };
 export async function POST(_request: Request, { params }: Params) {
   const { id } = await params;
   const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  const userId = session?.user?.id ?? (await getGuestUserId());
+  if (!userId) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
-  const chart = await prisma.chart.findFirst({ where: { id, userId: session.user.id } });
+  const chart = await prisma.chart.findFirst({ where: { id, userId } });
   if (!chart) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const client = toClientChart(chart);
