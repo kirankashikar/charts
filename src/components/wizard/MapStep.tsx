@@ -199,6 +199,8 @@ export function MapStep({ chart, update }: StepProps) {
               : "A choropleth needs a place name and a numeric value — no coordinates. Names are matched against country or US state boundaries.";
 
   const locked =
+    (def.shape === "flow" && flowLinks(chart.sheets, chart.mapping).length === 0) ||
+    (def.shape === "matrix" && matrixData(chart.sheets, chart.mapping).rows.length === 0) ||
     (def.shape === "obs" && obsGroups(chart.sheets, chart.mapping).length === 0) ||
     (def.shape === "geopoint" && geoPoints(chart.sheets, chart.mapping).length === 0) ||
     (def.shape === "geoarc" && geoArcs(chart.sheets, chart.mapping).length === 0) ||

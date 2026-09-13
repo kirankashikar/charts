@@ -290,6 +290,8 @@ interface RadialNode {
 export function buildScene(snapshot: ChartSnapshot): Scene {
   const { chartType, sheets, mapping, style } = snapshot;
   const def = chartDef(chartType);
+  if (def.shape === "flow" && flowLinks(sheets, mapping).length === 0) return emptyScene(true);
+  if (def.shape === "matrix" && matrixData(sheets, mapping).rows.length === 0) return emptyScene(true);
   if (def.shape === "obs" && obsGroups(sheets, mapping).length === 0) return emptyScene(true);
   if (def.shape === "geopoint" && geoPoints(sheets, mapping).length === 0) return emptyScene(true);
   if (def.shape === "geoarc" && geoArcs(sheets, mapping).length === 0) return emptyScene(true);

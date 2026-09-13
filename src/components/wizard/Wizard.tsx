@@ -622,14 +622,20 @@ export function Wizard({
                     <div style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: 17, marginBottom: 6 }}>
                       {def.shape === "geopoint" || def.shape === "geoarc" || def.shape === "georegion"
                         ? "No geography in this sheet"
-                        : "No observation-level rows"}
+                        : def.shape === "flow" || def.shape === "matrix"
+                          ? "No usable rows in this sheet"
+                          : "No observation-level rows"}
                     </div>
                     <div style={{ fontSize: 13, color: "#605d5d", maxWidth: "48ch", marginBottom: 16 }}>
                       {def.shape === "geopoint" || def.shape === "geoarc"
                         ? `A ${def.name.toLowerCase()} needs latitude and longitude columns plus a numeric value. Check the Map step.`
                         : def.shape === "georegion"
                           ? "A choropleth needs a place name and a numeric value, with names that match a country or US state. Check the Map step."
-                          : "A violin plot draws a distribution, so it needs one row per observation rather than the aggregated totals in this sheet."}
+                          : def.shape === "flow"
+                            ? `A ${def.name.toLowerCase()} needs two node columns and a positive numeric weight — check that the Map step points at the right columns for this data.`
+                            : def.shape === "matrix"
+                              ? "A comparison chart needs a label column and at least one numeric measure — check the Map step."
+                              : "A violin plot draws a distribution, so it needs one row per observation rather than the aggregated totals in this sheet."}
                     </div>
                     <button className="btn btn-primary" onClick={() => setStep(1)}>
                       Add the columns
