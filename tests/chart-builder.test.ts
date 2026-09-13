@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { buildScene, paletteColors, sceneToSvg } from "../src/lib/chart-builder";
-import { DEFAULT_SHEETS, DEFAULT_STYLE, ChartSnapshot } from "../src/lib/chart-types";
+import { DEFAULT_MAPPING, DEFAULT_SHEETS, DEFAULT_STYLE, ChartSnapshot } from "../src/lib/chart-types";
 
 function makeSnapshot(chartType: string, customStyle?: Partial<typeof DEFAULT_STYLE>): ChartSnapshot {
   return {
@@ -10,6 +10,7 @@ function makeSnapshot(chartType: string, customStyle?: Partial<typeof DEFAULT_ST
     engine: "builtin",
     sheets: DEFAULT_SHEETS,
     mapping: {
+      ...DEFAULT_MAPPING,
       flow: { s: 0, t: 1, v: 2 },
       matrix: { label: 0, measures: [1, 2, 3] },
     },
@@ -107,7 +108,7 @@ describe("chart-builder lib", () => {
           flows: { name: "Flows", cols: ["S", "T", "V"], types: ["text", "text", "number"], rows: [] },
           segments: { name: "Segments", cols: ["Cat", "M1"], types: ["text", "number"], rows: [] },
         },
-        mapping: { flow: { s: 0, t: 1, v: 2 }, matrix: { label: 0, measures: [1] } },
+        mapping: { ...DEFAULT_MAPPING, flow: { s: 0, t: 1, v: 2 }, matrix: { label: 0, measures: [1] } },
         style: DEFAULT_STYLE,
       };
 

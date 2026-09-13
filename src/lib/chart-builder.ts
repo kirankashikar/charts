@@ -121,6 +121,94 @@ export function matrixData(sheets: Sheets, mapping: Mapping): MatrixData {
   return { axes, rows };
 }
 
+export interface ObsGroup {
+  group: string;
+  values: number[];
+}
+
+/** Rows collapsed into one array of numeric observations per group —
+ *  what a violin plot needs, as opposed to the pre-aggregated totals a flow
+ *  or matrix sheet carries. */
+export function obsGroups(sheets: Sheets, mapping: Mapping): ObsGroup[] {
+  const m = mapping.obs;
+  const groups = new Map<string, number[]>();
+  for (const r of sheets.flows.rows) {
+    const group = r[m.group];
+    const v = parseFloat(r[m.value]);
+    if (!group || !isFinite(v)) continue;
+    const list = groups.get(group) ?? [];
+    list.push(v);
+    groups.set(group, list);
+  }
+  return [...groups.entries()].map(([group, values]) => ({ group, values }));
+}
+
+export interface GeoPoint {
+  place: string;
+  lat: number;
+  lon: number;
+  value: number;
+}
+
+/** Rows with a valid place name, in-range lat/lon, and a positive value —
+ *  what a proportional symbol map plots. */
+export function geoPoints(sheets: Sheets, mapping: Mapping): GeoPoint[] {
+  const m = mapping.geoPoint;
+  const out: GeoPoint[] = [];
+  for (const r of sheets.flows.rows) {
+    const place = r[m.place];
+    const lat = parseFloat(r[m.lat]);
+    const lon = parseFloat(r[m.lon]);
+    const v = parseFloat(r[m.value]);
+    if (place && isFinite(lat) && isFinite(lon) && isFinite(v) && v > 0 && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+      out.push({ place, lat, lon, value: v });
+    }
+  }
+  return out;
+}
+
+export interface GeoArc {
+  originPlace: string;
+  originLat: number;
+  originLon: number;
+  destPlace: string;
+  destLat: number;
+  destLon: number;
+  value: number;
+}
+
+/** Rows with both endpoints valid and a positive value — the origin/
+ *  destination pairs a connection map draws as arcs. */
+export function geoArcs(sheets: Sheets, mapping: Mapping): GeoArc[] {
+  const m = mapping.geoArc;
+  const out: GeoArc[] = [];
+  const inRange = (lat: number, lon: number) => Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
+  for (const r of sheets.flows.rows) {
+    const originPlace = r[m.originPlace];
+    const originLat = parseFloat(r[m.originLat]);
+    const originLon = parseFloat(r[m.originLon]);
+    const destPlace = r[m.destPlace];
+    const destLat = parseFloat(r[m.destLat]);
+    const destLon = parseFloat(r[m.destLon]);
+    const v = parseFloat(r[m.value]);
+    if (
+      originPlace &&
+      destPlace &&
+      isFinite(originLat) &&
+      isFinite(originLon) &&
+      isFinite(destLat) &&
+      isFinite(destLon) &&
+      isFinite(v) &&
+      v > 0 &&
+      inRange(originLat, originLon) &&
+      inRange(destLat, destLon)
+    ) {
+      out.push({ originPlace, originLat, originLon, destPlace, destLat, destLon, value: v });
+    }
+  }
+  return out;
+}
+
 export function formatValue(v: number | string): string {
   const n = Number(v);
   if (!isFinite(n)) return String(v);
@@ -180,7 +268,9 @@ interface RadialNode {
 export function buildScene(snapshot: ChartSnapshot): Scene {
   const { chartType, sheets, mapping, style } = snapshot;
   const def = chartDef(chartType);
-  if (def.shape === "geo" || def.shape === "obs") return emptyScene(true);
+  if (def.shape === "obs" && obsGroups(sheets, mapping).length === 0) return emptyScene(true);
+  if (def.shape === "geopoint" && geoPoints(sheets, mapping).length === 0) return emptyScene(true);
+  if (def.shape === "geoarc" && geoArcs(sheets, mapping).length === 0) return emptyScene(true);
 
   const out = emptyScene(false);
   const id = def.id;
@@ -590,15 +680,19 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
         padR = 16,
         top = 26,
         bot = H - 34;
-      const totals = M.rows.map((r) => r.vals.reduce((a, b) => a + b, 0) || 1);
+      // A mekko's box heights are shares of a stack, so a negative measure
+      // (a decline, a loss) has no meaningful area here — floor at zero
+      // rather than letting it invert the box below it.
+      const posVals = M.rows.map((r) => r.vals.map((v) => Math.max(0, v)));
+      const totals = posVals.map((vals) => vals.reduce((a, b) => a + b, 0) || 1);
       const grand = totals.reduce((a, b) => a + b, 0) || 1;
       let x = padL;
       M.rows.forEach((r, k) => {
         const cw = (totals[k] / grand) * (W - padL - padR) - 4;
         let y = top;
-        r.vals.forEach((v, i) => {
+        posVals[k].forEach((v, i) => {
           const hh = (v / totals[k]) * (bot - top);
-          pushRect({ x, y, w: cw, h: hh - 2, fill: col(i), op: 0.9 });
+          pushRect({ x, y, w: cw, h: Math.max(0, hh - 2), fill: col(i), op: 0.9 });
           if (lab && hh > 22 && cw > 54) {
             text({
               x: x + 8,
@@ -614,6 +708,128 @@ export function buildScene(snapshot: ChartSnapshot): Scene {
         text({ x, y: bot + 16, text: r.label, size: 11.5, weight: 800 });
         text({ x, y: top - 10, text: formatValue(totals[k]), size: 10, fill: MUTED });
         x += cw + 4;
+      });
+    }
+  }
+
+  if (def.shape === "obs") {
+    const groups = obsGroups(sheets, mapping);
+    const padL = 60,
+      padR = 30,
+      top = 30,
+      bot = H - 44;
+    const allValues = groups.flatMap((g) => g.values);
+    const vMin = Math.min(...allValues);
+    const vMax = Math.max(...allValues);
+    const span = vMax - vMin || 1;
+    const y = (v: number) => bot - ((v - vMin) / span) * (bot - top);
+    const n = groups.length;
+    const cx = (i: number) => (n === 1 ? (padL + W - padR) / 2 : padL + (i / (n - 1)) * (W - padL - padR));
+    const maxHalfW = Math.min(48, (W - padL - padR) / Math.max(1, n) / 2 - 6);
+    const bins = 10;
+
+    out.lines.push({ x1: padL - 10, y1: top, x2: padL - 10, y2: bot, stroke: GRID, sw: 1, op: 1 });
+    text({ x: padL - 16, y: top + 4, text: formatValue(vMax), anchor: "end", size: 9.5, fill: MUTED });
+    text({ x: padL - 16, y: bot + 4, text: formatValue(vMin), anchor: "end", size: 9.5, fill: MUTED });
+
+    groups.forEach((g, i) => {
+      const gx = cx(i);
+      const sorted = g.values.slice().sort((a, b) => a - b);
+      const counts = new Array(bins).fill(0);
+      sorted.forEach((v) => {
+        const idx = Math.min(bins - 1, Math.floor(((v - vMin) / span) * bins));
+        counts[idx]++;
+      });
+      const maxCount = Math.max(1, ...counts);
+      const left: string[] = [];
+      const right: string[] = [];
+      for (let b = 0; b <= bins; b++) {
+        const v = vMin + (b / bins) * span;
+        const c = counts[Math.min(bins - 1, b)];
+        const w = (c / maxCount) * maxHalfW;
+        left.push(`${(gx - w).toFixed(1)},${y(v).toFixed(1)}`);
+        right.unshift(`${(gx + w).toFixed(1)},${y(v).toFixed(1)}`);
+      }
+      pushPath({ d: `M${left.join("L")}L${right.join("L")}Z`, fill: col(i), op: 0.28, stroke: col(i), sw: 1.5 });
+
+      const median = sorted[Math.floor(sorted.length / 2)];
+      out.lines.push({
+        x1: gx - maxHalfW * 0.5,
+        y1: y(median),
+        x2: gx + maxHalfW * 0.5,
+        y2: y(median),
+        stroke: col(i),
+        sw: 2,
+        op: 0.9,
+      });
+
+      text({ x: gx, y: bot + 18, text: g.group, anchor: "middle", size: 11.5, weight: 800 });
+      if (showV) text({ x: gx, y: bot + 32, text: `n=${g.values.length}`, anchor: "middle", size: 9.5, fill: MUTED });
+    });
+  }
+
+  if (def.shape === "geopoint" || def.shape === "geoarc") {
+    const gx = 20,
+      gy = 24,
+      gw = W - 40,
+      gh = H - (def.shape === "geopoint" ? 70 : 40);
+    const project = (lat: number, lon: number): [number, number] => [
+      gx + ((lon + 180) / 360) * gw,
+      gy + ((90 - lat) / 180) * gh,
+    ];
+    pushRect({ x: gx, y: gy, w: gw, h: gh, fill: "none", stroke: GRID, sw: 1 });
+    for (let lon = -180; lon <= 180; lon += 60) {
+      const [x] = project(0, lon);
+      out.lines.push({ x1: x, y1: gy, x2: x, y2: gy + gh, stroke: GRID, sw: 1, op: 0.5 });
+    }
+    for (let lat = -60; lat <= 60; lat += 30) {
+      const [, yy] = project(lat, 0);
+      out.lines.push({ x1: gx, y1: yy, x2: gx + gw, y2: yy, stroke: GRID, sw: 1, op: 0.5 });
+    }
+
+    if (def.shape === "geopoint") {
+      const points = geoPoints(sheets, mapping);
+      const maxV = Math.max(...points.map((p) => p.value));
+      points.forEach((p, i) => {
+        const [x, y] = project(p.lat, p.lon);
+        const r = 5 + 26 * Math.sqrt(p.value / maxV);
+        pushCircle({ cx: x, cy: y, r, fill: col(i), op: 0.55, stroke: col(i), sw: 1.5 });
+        if (lab) {
+          text({
+            x,
+            y: y - r - 6,
+            text: p.place + (showV ? "  " + formatValue(p.value) : ""),
+            anchor: "middle",
+            size: 10.5,
+            weight: 700,
+          });
+        }
+      });
+    } else {
+      const arcs = geoArcs(sheets, mapping);
+      const maxV = Math.max(...arcs.map((a) => a.value));
+      const places = new Map<string, [number, number]>();
+      arcs.forEach((a, i) => {
+        const [x0, y0] = project(a.originLat, a.originLon);
+        const [x1, y1] = project(a.destLat, a.destLon);
+        places.set(a.originPlace, [x0, y0]);
+        places.set(a.destPlace, [x1, y1]);
+        const dx = x1 - x0,
+          dy = y1 - y0;
+        const norm = Math.hypot(dx, dy) || 1;
+        const bulge = Math.min(50, norm * 0.25);
+        const cxp = (x0 + x1) / 2 - (dy / norm) * bulge;
+        const cyp = (y0 + y1) / 2 + (dx / norm) * bulge;
+        pushPath({
+          d: `M${x0.toFixed(1)},${y0.toFixed(1)}Q${cxp.toFixed(1)},${cyp.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`,
+          stroke: col(i),
+          sw: Math.max(1, (a.value / maxV) * 7),
+          op: 0.55,
+        });
+      });
+      [...places.entries()].forEach(([name, [x, y]]) => {
+        pushCircle({ cx: x, cy: y, r: 5, fill: INK, stroke: GROUND, sw: 1.5 });
+        if (lab) text({ x, y: y - 10, text: name, anchor: "middle", size: 10, weight: 700 });
       });
     }
   }

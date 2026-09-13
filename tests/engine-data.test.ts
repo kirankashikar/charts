@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { hierarchyData, matrixSeries, nodeLinkData } from "../src/lib/engine-data";
-import { DEFAULT_SHEETS, DEFAULT_STYLE, ChartSnapshot } from "../src/lib/chart-types";
+import { DEFAULT_MAPPING, DEFAULT_SHEETS, DEFAULT_STYLE, ChartSnapshot } from "../src/lib/chart-types";
 
 describe("engine-data lib", () => {
   const baseSnapshot: ChartSnapshot = {
@@ -10,6 +10,7 @@ describe("engine-data lib", () => {
     engine: "builtin",
     sheets: DEFAULT_SHEETS,
     mapping: {
+      ...DEFAULT_MAPPING,
       flow: { s: 0, t: 1, v: 2 },
       matrix: { label: 0, measures: [1, 2, 3] },
     },

@@ -81,6 +81,9 @@ export function normalizeMapping(raw: unknown, sheets: Sheets): Mapping {
   const mc = Math.max(1, sheets.segments.cols.length);
   const flowRaw = (r.flow ?? DEFAULT_MAPPING.flow) as Mapping["flow"];
   const matrixRaw = (r.matrix ?? DEFAULT_MAPPING.matrix) as Mapping["matrix"];
+  const obsRaw = (r.obs ?? DEFAULT_MAPPING.obs) as Mapping["obs"];
+  const geoPointRaw = (r.geoPoint ?? DEFAULT_MAPPING.geoPoint) as Mapping["geoPoint"];
+  const geoArcRaw = (r.geoArc ?? DEFAULT_MAPPING.geoArc) as Mapping["geoArc"];
   const measures = Array.isArray(matrixRaw.measures)
     ? Array.from(new Set(matrixRaw.measures.map((m) => Math.floor(num(m, -1))))).filter((m) => m >= 0 && m < mc)
     : DEFAULT_MAPPING.matrix.measures.filter((m) => m < mc);
@@ -91,6 +94,25 @@ export function normalizeMapping(raw: unknown, sheets: Sheets): Mapping {
       v: clamp(flowRaw.v, 2, fc),
     },
     matrix: { label: clamp(matrixRaw.label, 0, mc), measures: measures.sort((a, b) => a - b) },
+    obs: {
+      group: clamp(obsRaw.group, 0, fc),
+      value: clamp(obsRaw.value, 1, fc),
+    },
+    geoPoint: {
+      place: clamp(geoPointRaw.place, 0, fc),
+      lat: clamp(geoPointRaw.lat, 1, fc),
+      lon: clamp(geoPointRaw.lon, 2, fc),
+      value: clamp(geoPointRaw.value, 3, fc),
+    },
+    geoArc: {
+      originPlace: clamp(geoArcRaw.originPlace, 0, fc),
+      originLat: clamp(geoArcRaw.originLat, 1, fc),
+      originLon: clamp(geoArcRaw.originLon, 2, fc),
+      destPlace: clamp(geoArcRaw.destPlace, 3, fc),
+      destLat: clamp(geoArcRaw.destLat, 4, fc),
+      destLon: clamp(geoArcRaw.destLon, 5, fc),
+      value: clamp(geoArcRaw.value, 6, fc),
+    },
   };
 }
 

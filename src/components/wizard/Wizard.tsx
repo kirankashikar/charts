@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
 import { EngineChart } from "@/components/EngineChart";
-import { buildScene, flowLinks, groundColors, matrixData } from "@/lib/chart-builder";
+import { buildScene, flowLinks, groundColors, matrixData, obsGroups, geoPoints, geoArcs } from "@/lib/chart-builder";
 import { chartDef, SheetKey, STEPS } from "@/lib/chart-types";
 import type { ClientChart } from "@/lib/charts";
 import { toSnapshot } from "@/lib/charts";
@@ -108,7 +108,13 @@ export function Wizard({
   const rowNote =
     def.shape === "matrix"
       ? `${matrixData(chart.sheets, chart.mapping).rows.length} series`
-      : `${flowLinks(chart.sheets, chart.mapping).length} links`;
+      : def.shape === "obs"
+        ? `${obsGroups(chart.sheets, chart.mapping).length} groups`
+        : def.shape === "geopoint"
+          ? `${geoPoints(chart.sheets, chart.mapping).length} places`
+          : def.shape === "geoarc"
+            ? `${geoArcs(chart.sheets, chart.mapping).length} routes`
+            : `${flowLinks(chart.sheets, chart.mapping).length} links`;
 
   const syncNote =
     saveState === "saving"
@@ -417,11 +423,13 @@ export function Wizard({
                     }}
                   >
                     <div style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: 17, marginBottom: 6 }}>
-                      {def.shape === "geo" ? "No geography in this sheet" : "No observation-level rows"}
+                      {def.shape === "geopoint" || def.shape === "geoarc"
+                        ? "No geography in this sheet"
+                        : "No observation-level rows"}
                     </div>
                     <div style={{ fontSize: 13, color: "#605d5d", maxWidth: "48ch", marginBottom: 16 }}>
-                      {def.shape === "geo"
-                        ? `A ${def.name.toLowerCase()} needs latitude and longitude, or a place column we can geocode. Add a column and set its type to Geo.`
+                      {def.shape === "geopoint" || def.shape === "geoarc"
+                        ? `A ${def.name.toLowerCase()} needs latitude and longitude columns plus a numeric value. Check the Map step.`
                         : "A violin plot draws a distribution, so it needs one row per observation rather than the aggregated totals in this sheet."}
                     </div>
                     <button className="btn btn-primary" onClick={() => setStep(1)}>

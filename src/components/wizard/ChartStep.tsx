@@ -14,8 +14,8 @@ export function ChartStep({
     <div style={{ padding: "24px 28px 40px" }}>
       <h2 style={{ fontSize: 26, margin: 0 }}>Chart type</h2>
       <p style={{ fontSize: 13, color: "#605d5d", margin: "4px 0 20px", maxWidth: "60ch" }}>
-        Types are grouped by the question they answer. Anything your current sheets can&apos;t feed is shown with what it
-        needs.
+        Types are grouped by the question they answer. Picking one seeds the next step with data shaped the way it
+        draws.
       </p>
       {CHART_GROUPS.map((group) => (
         <div key={group.g} style={{ marginBottom: 28 }}>
@@ -42,7 +42,6 @@ export function ChartStep({
           >
             {group.items.map((item) => {
               const on = item.id === chart.chartType;
-              const unsupported = item.shape === "geo" || item.shape === "obs";
               return (
                 <button
                   key={item.id}
@@ -62,7 +61,7 @@ export function ChartStep({
                     }
                     setActiveSheet(feedingKey);
                   }}
-                  style={cardBtn(on, unsupported)}
+                  style={cardBtn(on, false)}
                 >
                   <svg viewBox="0 0 60 34" style={{ width: 60, height: 34, display: "block", marginBottom: 10 }}>
                     {chartIcon(item.id).map((p, i) => (
@@ -72,13 +71,7 @@ export function ChartStep({
                   <div style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: 13.5, lineHeight: 1.2 }}>
                     {item.name}
                   </div>
-                  <div style={{ fontSize: 11, color: "#7d7979", marginTop: 3, lineHeight: 1.35 }}>
-                    {unsupported
-                      ? item.shape === "geo"
-                        ? "Needs lat/lon columns"
-                        : "Needs raw observations"
-                      : item.note}
-                  </div>
+                  <div style={{ fontSize: 11, color: "#7d7979", marginTop: 3, lineHeight: 1.35 }}>{item.note}</div>
                 </button>
               );
             })}

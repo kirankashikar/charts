@@ -22,9 +22,34 @@ export interface MatrixMapping {
   measures: number[];
 }
 
+export interface ObsMapping {
+  group: number;
+  value: number;
+}
+
+export interface GeoPointMapping {
+  place: number;
+  lat: number;
+  lon: number;
+  value: number;
+}
+
+export interface GeoArcMapping {
+  originPlace: number;
+  originLat: number;
+  originLon: number;
+  destPlace: number;
+  destLat: number;
+  destLon: number;
+  value: number;
+}
+
 export interface Mapping {
   flow: FlowMapping;
   matrix: MatrixMapping;
+  obs: ObsMapping;
+  geoPoint: GeoPointMapping;
+  geoArc: GeoArcMapping;
 }
 
 export type PaletteId = "accent" | "ink" | "duo" | "wash" | "deep" | "custom";
@@ -44,8 +69,9 @@ export interface ChartStyle {
 
 /** What a chart type needs from the data: two node columns and a weight
  *  (flow), a label plus numeric measures (matrix), raw observations (obs),
- *  or coordinates (geo). `obs` and `geo` have no renderer yet. */
-export type ChartShape = "flow" | "matrix" | "obs" | "geo";
+ *  a single lat/lon point per row (geopoint), or a lat/lon pair per row
+ *  (geoarc). */
+export type ChartShape = "flow" | "matrix" | "obs" | "geopoint" | "geoarc";
 
 export interface ChartDef {
   id: string;
@@ -74,7 +100,20 @@ export const ENGINES: { id: Engine; name: string; note: string }[] = [
 /** Chart types each engine draws itself. Anything absent falls back to the
  *  built-in renderer rather than showing an empty frame. */
 export const ENGINE_SUPPORT: Record<Engine, string[]> = {
-  builtin: ["sankey", "sunburst", "treemap", "pack", "chord", "network", "parallel", "marimekko", "radar"],
+  builtin: [
+    "sankey",
+    "sunburst",
+    "treemap",
+    "pack",
+    "chord",
+    "network",
+    "parallel",
+    "marimekko",
+    "radar",
+    "violin",
+    "symbolmap",
+    "connmap",
+  ],
   echarts: ["sankey", "sunburst", "treemap", "network", "chord", "parallel", "radar"],
   plotly: ["sankey", "sunburst", "treemap", "parallel", "radar"],
   d3: ["sankey", "sunburst", "treemap", "pack", "chord", "network"],
@@ -125,8 +164,8 @@ export const CHART_GROUPS: ChartGroup[] = [
   {
     g: "Geospatial",
     items: [
-      { id: "symbolmap", name: "Proportional symbol map", shape: "geo", note: "Magnitude by place" },
-      { id: "connmap", name: "Connection map", shape: "geo", note: "Origin → destination arcs" },
+      { id: "symbolmap", name: "Proportional symbol map", shape: "geopoint", note: "Magnitude by place" },
+      { id: "connmap", name: "Connection map", shape: "geoarc", note: "Origin → destination arcs" },
     ],
   },
 ];
@@ -273,6 +312,72 @@ const NETWORK_SEED: Sheet = {
   ],
 };
 
+const VIOLIN_SEED: Sheet = {
+  name: "Observations",
+  cols: ["Priority", "Resolution hours"],
+  types: ["text", "number"],
+  rows: [
+    ["Critical", "1.2"],
+    ["Critical", "0.8"],
+    ["Critical", "1.6"],
+    ["Critical", "2.1"],
+    ["Critical", "1.1"],
+    ["Critical", "0.9"],
+    ["Critical", "1.4"],
+    ["High", "3.5"],
+    ["High", "5.2"],
+    ["High", "4.1"],
+    ["High", "6.8"],
+    ["High", "4.6"],
+    ["High", "3.9"],
+    ["High", "5.9"],
+    ["Medium", "9.2"],
+    ["Medium", "14.5"],
+    ["Medium", "11.1"],
+    ["Medium", "18.4"],
+    ["Medium", "10.6"],
+    ["Medium", "16.2"],
+    ["Medium", "12.8"],
+    ["Low", "22.4"],
+    ["Low", "38.6"],
+    ["Low", "29.1"],
+    ["Low", "45.9"],
+    ["Low", "31.2"],
+    ["Low", "27.5"],
+    ["Low", "40.3"],
+  ],
+};
+
+const SYMBOLMAP_SEED: Sheet = {
+  name: "Places",
+  cols: ["City", "Lat", "Lon", "Users"],
+  types: ["text", "number", "number", "number"],
+  rows: [
+    ["New York", "40.71", "-74.01", "12000"],
+    ["London", "51.51", "-0.13", "9000"],
+    ["Tokyo", "35.68", "139.69", "15000"],
+    ["São Paulo", "-23.55", "-46.63", "7000"],
+    ["Sydney", "-33.87", "151.21", "4000"],
+    ["Mumbai", "19.08", "72.88", "8600"],
+    ["Lagos", "6.52", "3.38", "3900"],
+    ["Berlin", "52.52", "13.41", "5200"],
+  ],
+};
+
+const CONNMAP_SEED: Sheet = {
+  name: "Routes",
+  cols: ["Origin", "Origin lat", "Origin lon", "Destination", "Destination lat", "Destination lon", "Shipments"],
+  types: ["text", "number", "number", "text", "number", "number", "number"],
+  rows: [
+    ["Shanghai", "31.23", "121.47", "Los Angeles", "34.05", "-118.24", "4200"],
+    ["Rotterdam", "51.92", "4.48", "New York", "40.71", "-74.01", "2800"],
+    ["Singapore", "1.35", "103.82", "Dubai", "25.20", "55.27", "3100"],
+    ["Mumbai", "19.08", "72.88", "London", "51.51", "-0.13", "1900"],
+    ["São Paulo", "-23.55", "-46.63", "Lisbon", "38.72", "-9.14", "1400"],
+    ["Shanghai", "31.23", "121.47", "Rotterdam", "51.92", "4.48", "3600"],
+  ],
+};
+
 const PROFILE_SEED: Sheet = {
   name: "Segments",
   cols: ["Segment", "Reach", "Engagement", "Retention", "Revenue", "Cost"],
@@ -319,6 +424,9 @@ export const FLOW_SEEDS: Record<string, Sheet> = {
   pack: PACK_SEED,
   chord: RELATIONSHIP_SEED,
   network: NETWORK_SEED,
+  violin: VIOLIN_SEED,
+  symbolmap: SYMBOLMAP_SEED,
+  connmap: CONNMAP_SEED,
 };
 
 /** Seed data per matrix-shaped chart type — one label column plus five
@@ -360,6 +468,9 @@ export const DEFAULT_SHEETS: Sheets = {
 export const DEFAULT_MAPPING: Mapping = {
   flow: { s: 0, t: 1, v: 2 },
   matrix: { label: 0, measures: [1, 2, 3, 4, 5] },
+  obs: { group: 0, value: 1 },
+  geoPoint: { place: 0, lat: 1, lon: 2, value: 3 },
+  geoArc: { originPlace: 0, originLat: 1, originLon: 2, destPlace: 3, destLat: 4, destLon: 5, value: 6 },
 };
 
 export const DEFAULT_STYLE: ChartStyle = {
