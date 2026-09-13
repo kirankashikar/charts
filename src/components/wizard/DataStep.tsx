@@ -9,6 +9,35 @@ function editSheet(sheets: Sheets, key: SheetKey, edit: (sheet: Sheet) => Sheet)
   return { ...sheets, [key]: edit(structuredClone(sheets[key])) };
 }
 
+/** Candidate delimiters a pasted block might use, in the order we prefer a
+ *  tie: tab (Excel's own clipboard format), then the common text-table ones. */
+const DELIMITERS = [
+  { char: "\t", label: "tab" },
+  { char: ",", label: "comma" },
+  { char: ";", label: "semicolon" },
+  { char: "|", label: "pipe" },
+  { char: "~", label: "tilde" },
+];
+
+/** Picks whichever delimiter splits the pasted lines into the most
+ *  consistent column count — mirroring Excel's own paste-detection instead
+ *  of assuming tab-separated cells. */
+function detectDelimiter(lines: string[]): string {
+  let best = DELIMITERS[0];
+  let bestScore = -1;
+  for (const d of DELIMITERS) {
+    const counts = lines.map((l) => l.split(d.char).length);
+    if (counts[0] <= 1) continue;
+    const consistent = counts.every((c) => c === counts[0]);
+    const score = (consistent ? 1000 : 0) + counts[0];
+    if (score > bestScore) {
+      bestScore = score;
+      best = d;
+    }
+  }
+  return best.char;
+}
+
 export function DataStep({ chart, update, activeSheet, setActiveSheet }: DataStepProps) {
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState("");
@@ -21,15 +50,17 @@ export function DataStep({ chart, update, activeSheet, setActiveSheet }: DataSte
   const mutate = (edit: (s: Sheet) => Sheet) => update({ sheets: editSheet(chart.sheets, activeSheet, edit) });
 
   const applyPaste = () => {
-    const lines = pasteText
+    const rawLines = pasteText
+      .replace(/\r\n?/g, "\n")
       .trim()
-      .split(/\n/)
-      .filter(Boolean)
-      .map((l) => l.split("\t"));
-    if (lines.length < 2) {
+      .split("\n")
+      .filter(Boolean);
+    if (rawLines.length < 2) {
       setPasteNote("Need a header row and at least one data row.");
       return;
     }
+    const delimiter = detectDelimiter(rawLines);
+    const lines = rawLines.map((l) => l.split(delimiter).map((cell) => cell.trim()));
     mutate((s) => ({
       ...s,
       cols: lines[0],
@@ -47,7 +78,8 @@ export function DataStep({ chart, update, activeSheet, setActiveSheet }: DataSte
         <div>
           <h2 style={{ fontSize: 26, margin: 0 }}>Your data</h2>
           <p style={{ fontSize: 13, color: "#605d5d", margin: "4px 0 0", maxWidth: "56ch" }}>
-            Type in the grid, or paste a block straight from Excel. Every keystroke redraws the chart.
+            Type in the grid, or paste a block straight from Excel — tab, comma, semicolon, pipe, or tilde separated,
+            detected automatically. Every keystroke redraws the chart.
           </p>
         </div>
         <button
@@ -75,12 +107,12 @@ export function DataStep({ chart, update, activeSheet, setActiveSheet }: DataSte
       {pasteOpen && (
         <div style={{ border: "2px solid #ec3013", padding: 16, marginTop: 16, background: "#fff2ef" }}>
           <div style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: 13, marginBottom: 8 }}>
-            Paste tab-separated cells
+            Paste cells — tab, comma, semicolon, pipe, or tilde separated
           </div>
           <textarea
             className="input"
             rows={4}
-            placeholder={"Source\tTarget\tValue"}
+            placeholder={"Source,Target,Value"}
             value={pasteText}
             onChange={(e) => setPasteText(e.target.value)}
             style={{ width: "100%", fontFamily: "ui-monospace,monospace", fontSize: 12 }}

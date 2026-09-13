@@ -175,35 +175,114 @@ export function chartDef(id: string): ChartDef {
   return CHART_GROUPS[0].items[0];
 }
 
+const FUNNEL_SEED: Sheet = {
+  name: "Flows",
+  cols: ["Source", "Target", "Value"],
+  types: ["text", "text", "number"],
+  rows: [
+    ["Organic search", "Homepage", "4200"],
+    ["Paid social", "Homepage", "1800"],
+    ["Email", "Homepage", "1500"],
+    ["Referral", "Product tour", "900"],
+    ["Homepage", "Sign-up", "3600"],
+    ["Homepage", "Pricing", "2400"],
+    ["Product tour", "Sign-up", "700"],
+    ["Pricing", "Sign-up", "1500"],
+    ["Sign-up", "Activated", "3900"],
+    ["Sign-up", "Dormant", "1900"],
+  ],
+};
+
+const HIERARCHY_SEED: Sheet = {
+  name: "Flows",
+  cols: ["Department", "Team", "Budget"],
+  types: ["text", "text", "number"],
+  rows: [
+    ["Engineering", "Platform", "1200000"],
+    ["Engineering", "Product", "950000"],
+    ["Engineering", "Data", "600000"],
+    ["Marketing", "Growth", "700000"],
+    ["Marketing", "Brand", "450000"],
+    ["Sales", "Enterprise", "1100000"],
+    ["Sales", "SMB", "500000"],
+    ["Operations", "Support", "380000"],
+  ],
+};
+
+const RELATIONSHIP_SEED: Sheet = {
+  name: "Flows",
+  cols: ["From", "To", "Hours"],
+  types: ["text", "text", "number"],
+  rows: [
+    ["Engineering", "Product", "420"],
+    ["Engineering", "Design", "260"],
+    ["Product", "Design", "340"],
+    ["Product", "Marketing", "180"],
+    ["Design", "Marketing", "150"],
+    ["Marketing", "Sales", "300"],
+    ["Sales", "Support", "220"],
+    ["Support", "Engineering", "140"],
+    ["Sales", "Product", "190"],
+  ],
+};
+
+const PROFILE_SEED: Sheet = {
+  name: "Segments",
+  cols: ["Segment", "Reach", "Engagement", "Retention", "Revenue", "Cost"],
+  types: ["text", "number", "number", "number", "number", "number"],
+  rows: [
+    ["Enterprise", "82", "64", "91", "96", "70"],
+    ["Mid-market", "68", "77", "74", "71", "55"],
+    ["SMB", "91", "58", "46", "43", "38"],
+    ["Self-serve", "74", "83", "39", "29", "22"],
+  ],
+};
+
+/** Seed data per flow-shaped chart type — each tells a story that type draws
+ *  well (a funnel for sankey, a two-level tree for the hierarchy charts, a
+ *  many-to-many web for the relationship charts). */
+export const FLOW_SEEDS: Record<string, Sheet> = {
+  sankey: FUNNEL_SEED,
+  sunburst: HIERARCHY_SEED,
+  treemap: HIERARCHY_SEED,
+  pack: HIERARCHY_SEED,
+  chord: RELATIONSHIP_SEED,
+  network: RELATIONSHIP_SEED,
+};
+
+/** Seed data per matrix-shaped chart type. One profile dataset reads well
+ *  across all three (lines per segment, mekko columns, or a radar profile). */
+export const MATRIX_SEEDS: Record<string, Sheet> = {
+  parallel: PROFILE_SEED,
+  marimekko: PROFILE_SEED,
+  radar: PROFILE_SEED,
+};
+
+const FLOW_SEED_LIST = Object.values(FLOW_SEEDS);
+const MATRIX_SEED_LIST = Object.values(MATRIX_SEEDS);
+
+function sameSheetData(a: Sheet, b: Sheet): boolean {
+  return JSON.stringify(a.cols) === JSON.stringify(b.cols) && JSON.stringify(a.rows) === JSON.stringify(b.rows);
+}
+
+/** True when `sheet` still matches one of the built-in seed datasets for that
+ *  shape — i.e. the user hasn't typed or pasted their own data over it yet. */
+export function isSeedSheet(sheet: Sheet, shape: ChartShape): boolean {
+  const list = shape === "matrix" ? MATRIX_SEED_LIST : FLOW_SEED_LIST;
+  return list.some((seed) => sameSheetData(seed, sheet));
+}
+
+/** The seed sheet a given chart type wants to feed it, falling back to the
+ *  shared funnel/profile seed for shapes without a bespoke dataset. */
+export function seedFor(chartId: string): Sheet {
+  const shape = chartDef(chartId).shape;
+  const seed = shape === "matrix" ? MATRIX_SEEDS[chartId] : FLOW_SEEDS[chartId];
+  return structuredClone(seed ?? (shape === "matrix" ? PROFILE_SEED : FUNNEL_SEED));
+}
+
 export const DEFAULT_SHEETS: Sheets = {
-  flows: {
-    name: "Flows",
-    cols: ["Source", "Target", "Value"],
-    types: ["text", "text", "number"],
-    rows: [
-      ["Organic search", "Homepage", "4200"],
-      ["Paid social", "Homepage", "1800"],
-      ["Email", "Homepage", "1500"],
-      ["Referral", "Product tour", "900"],
-      ["Homepage", "Sign-up", "3600"],
-      ["Homepage", "Pricing", "2400"],
-      ["Product tour", "Sign-up", "700"],
-      ["Pricing", "Sign-up", "1500"],
-      ["Sign-up", "Activated", "3900"],
-      ["Sign-up", "Dormant", "1900"],
-    ],
-  },
-  segments: {
-    name: "Segments",
-    cols: ["Segment", "Reach", "Engagement", "Retention", "Revenue", "Cost"],
-    types: ["text", "number", "number", "number", "number", "number"],
-    rows: [
-      ["Enterprise", "82", "64", "91", "96", "70"],
-      ["Mid-market", "68", "77", "74", "71", "55"],
-      ["SMB", "91", "58", "46", "43", "38"],
-      ["Self-serve", "74", "83", "39", "29", "22"],
-    ],
-  },
+  flows: FUNNEL_SEED,
+  segments: PROFILE_SEED,
 };
 
 export const DEFAULT_MAPPING: Mapping = {

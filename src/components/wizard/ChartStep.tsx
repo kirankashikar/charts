@@ -1,6 +1,6 @@
 "use client";
 
-import { CHART_GROUPS, SheetKey } from "@/lib/chart-types";
+import { CHART_GROUPS, SheetKey, isSeedSheet, seedFor } from "@/lib/chart-types";
 import { chartIcon } from "./chart-icons";
 import { cardBtn } from "./controls";
 import type { StepProps } from "./types";
@@ -47,8 +47,20 @@ export function ChartStep({
                 <button
                   key={item.id}
                   onClick={() => {
-                    update({ chartType: item.id });
-                    setActiveSheet(item.shape === "matrix" ? "segments" : "flows");
+                    const feedingKey: SheetKey = item.shape === "matrix" ? "segments" : "flows";
+                    const current = chart.sheets[feedingKey];
+                    // Only swap in the new type's seed data when the sheet still
+                    // holds a built-in seed — never overwrite something the user
+                    // has typed or pasted over it.
+                    if (isSeedSheet(current, item.shape)) {
+                      update({
+                        chartType: item.id,
+                        sheets: { ...chart.sheets, [feedingKey]: seedFor(item.id) },
+                      });
+                    } else {
+                      update({ chartType: item.id });
+                    }
+                    setActiveSheet(feedingKey);
                   }}
                   style={cardBtn(on, unsupported)}
                 >
