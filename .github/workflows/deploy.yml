@@ -12,8 +12,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DATABASE_URL: "mysql://u352534340_charts:LkJh0978%40@localhost/u352534340_charts?socket=/var/lib/mysql/mysql.sock"
-  AUTH_SECRET: "LkJh0978@"
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
   NEXT_PUBLIC_APP_URL: "https://charts.fluidpalette.com"
 
 jobs:
@@ -59,39 +59,37 @@ jobs:
           mkdir -p dist/charts-dist/.next
           cp -r .next/static .next/server .next/standalone .next/BUILD_ID .next/routes-manifest.json dist/charts-dist/.next/ 2>/dev/null || cp -r .next dist/charts-dist/
           rm -rf dist/charts-dist/.next/cache 2>/dev/null || true
-          # Ensure root index.html and .htaccess are in webroot for instant 200 OK
-          if [ -f public/index.html ]; then cp public/index.html dist/charts-dist/; fi
-          if [ -f public/.htaccess ]; then cp public/.htaccess dist/charts-dist/; fi
           mkdir -p dist/charts-dist/deploy
           cp deploy/nginx-charts.fluidpalette.com.conf deploy/HOSTINGER_DEPLOYMENT_GUIDE.md dist/charts-dist/deploy/
 
       - name: 🔐 Write Server Config (.env)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          AUTH_GOOGLE_ID: ${{ secrets.AUTH_GOOGLE_ID }}
+          AUTH_GOOGLE_SECRET: ${{ secrets.AUTH_GOOGLE_SECRET }}
         run: |
-          cat > dist/charts-dist/.env << 'ENV_EOF'
-          DATABASE_URL="mysql://u352534340_charts:LkJh0978%40@localhost/u352534340_charts?socket=/var/lib/mysql/mysql.sock"
-          AUTH_SECRET="LkJh0978@"
+          cat > dist/charts-dist/.env << ENV_EOF
+          DATABASE_URL="${DATABASE_URL}"
+          AUTH_SECRET="${AUTH_SECRET}"
           NEXT_PUBLIC_APP_URL="https://charts.fluidpalette.com"
           AUTH_TRUST_HOST="true"
           PORT="3000"
           NODE_ENV="production"
+          AUTH_GOOGLE_ID="${AUTH_GOOGLE_ID}"
+          AUTH_GOOGLE_SECRET="${AUTH_GOOGLE_SECRET}"
           ENV_EOF
-          # Append Google OAuth credentials dynamically into deployed .env
-          node -e "
-            const id = ['1011394115361-', 'i9iuc8lpuc12ljcn5igq8nafr7cpm8tu', '.apps.', 'googleusercontent.com'].join('');
-            const sec = ['GOCSPX-', 'SVDh6VJD73Sj', 'EDo3yu7zyer5n5pi'].join('');
-            require('fs').appendFileSync('dist/charts-dist/.env', \`AUTH_GOOGLE_ID=\"\${id}\"\nAUTH_GOOGLE_SECRET=\"\${sec}\"\n\`);
-          "
 
       - name: 🚀 Deploy to Hostinger (Python Streamer)
         run: python3 scripts/deploy-to-hostinger.py
         env:
-          HOSTINGER_SSH_HOST: "145.223.77.155"
-          HOSTINGER_SSH_PORT: "65002"
-          HOSTINGER_SSH_USERNAME: "u352534340"
-          HOSTINGER_SSH_PASSWORD: "LkJh0978@"
-          HOSTINGER_FTP_SERVER: "145.223.77.155"
-          HOSTINGER_FTP_USERNAME: "u352534340.viscodelogin"
-          HOSTINGER_FTP_PASSWORD: "LkJh0978@"
+          HOSTINGER_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+          HOSTINGER_SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT }}
+          HOSTINGER_SSH_USERNAME: ${{ secrets.HOSTINGER_SSH_USERNAME }}
+          HOSTINGER_SSH_PASSWORD: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          HOSTINGER_FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER }}
+          HOSTINGER_FTP_USERNAME: ${{ secrets.HOSTINGER_FTP_USERNAME }}
+          HOSTINGER_FTP_PASSWORD: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
           LOCAL_DIR: ./dist/charts-dist
 
       - name: 📋 Write Deployment Summary

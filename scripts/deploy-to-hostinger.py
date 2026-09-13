@@ -11,7 +11,8 @@ Features:
 - Robust standard FTP (matching StockAnalysis configuration proven on Hostinger).
 - Fallback FTPS (TLS) support with clean connection recycling.
 - Deletes Hostinger default.php placeholders to clear HTTP 503 errors instantly.
-- Uploads critical webroot files (index.html, .htaccess) first so 200 OK is immediate.
+- Removes any stale index.html/.htaccess from prior deploys so the Next.js
+  app (server.js via the host's Node.js app manager) handles every route.
 - Filters out .cache and unnecessary temporary files to avoid slow uploads.
 - Writes full diagnostic summary to $GITHUB_STEP_SUMMARY and deploy.log.
 """
@@ -80,9 +81,11 @@ def deploy_via_ssh(host, port, user, password, local_dir, target_subdomains=['ch
             log(f"📁 Ensuring remote directory ~/{target_dir} exists...")
             subprocess.run(ssh_base + [f"mkdir -p ~/{target_dir}"], env=env, capture_output=True, text=True)
             
-            # Remove Hostinger default.php placeholder
-            log(f"🗑️ Removing default.php placeholder in ~/{target_dir} ...")
-            subprocess.run(ssh_base + [f"rm -f ~/{target_dir}/default.php ~/{target_dir}/default.html"], env=env, capture_output=True)
+            # Remove Hostinger default.php placeholder, plus any stale static
+            # fallback page/.htaccess from older deploys that would otherwise
+            # shadow the Next.js app for every route.
+            log(f"🗑️ Removing default.php placeholder and stale static overrides in ~/{target_dir} ...")
+            subprocess.run(ssh_base + [f"rm -f ~/{target_dir}/default.php ~/{target_dir}/default.html ~/{target_dir}/index.html ~/{target_dir}/.htaccess"], env=env, capture_output=True)
             
             # Stream tar archive
             log(f"📦 Streaming bundle to ~/{target_dir} ...")
@@ -163,17 +166,19 @@ def upload_directory_recursive(ftp, local_path):
     bytes_uploaded = 0
     base_remote_dir = ftp.pwd()
     
-    # 1. Immediately delete Hostinger placeholder files to clear 503 error
-    for placeholder in ['default.php', 'default.html']:
+    # 1. Immediately delete Hostinger placeholder files, plus any stale static
+    # fallback page/.htaccess from older deploys that would otherwise shadow
+    # the Next.js app for every route.
+    for placeholder in ['default.php', 'default.html', 'index.html', '.htaccess']:
         try:
             ftp.delete(placeholder)
-            log(f"  🗑️ Removed Hostinger {placeholder} placeholder!")
+            log(f"  🗑️ Removed stale {placeholder}!")
         except Exception:
             pass
-            
-    # 2. Upload root-level files FIRST (index.html, .htaccess, package.json, server.js)
+
+    # 2. Upload root-level files FIRST (package.json, server.js)
     root_files = [f for f in os.listdir(local_path) if os.path.isfile(os.path.join(local_path, f))]
-    priority = ['index.html', '.htaccess', 'package.json', 'server.js', '.env']
+    priority = ['package.json', 'server.js', '.env']
     ordered_files = [f for f in priority if f in root_files] + [f for f in root_files if f not in priority]
     
     for fname in ordered_files:
@@ -247,10 +252,10 @@ def main():
     targets = ['charts', 'chart']
     
     # 1. Check for SSH Deployment
-    ssh_host = (os.environ.get('HOSTINGER_SSH_HOST') or os.environ.get('SSH_HOST') or 'ftp.fluidpalette.com').strip()
+    ssh_host = (os.environ.get('HOSTINGER_SSH_HOST') or os.environ.get('SSH_HOST') or '').strip()
     ssh_port = int(os.environ.get('HOSTINGER_SSH_PORT') or os.environ.get('SSH_PORT') or '65002')
-    ssh_user = (os.environ.get('HOSTINGER_SSH_USERNAME') or os.environ.get('SSH_USERNAME') or os.environ.get('SSH_USER') or 'u352534340').strip()
-    ssh_pass = (os.environ.get('HOSTINGER_SSH_PASSWORD') or os.environ.get('SSH_PASSWORD') or os.environ.get('HOSTINGER_PASSWORD') or 'LkJh0978@').strip()
+    ssh_user = (os.environ.get('HOSTINGER_SSH_USERNAME') or os.environ.get('SSH_USERNAME') or os.environ.get('SSH_USER') or '').strip()
+    ssh_pass = (os.environ.get('HOSTINGER_SSH_PASSWORD') or os.environ.get('SSH_PASSWORD') or os.environ.get('HOSTINGER_PASSWORD') or '').strip()
     
     if ssh_host and ssh_user and ssh_pass:
         log("ℹ️ SSH credentials detected. Attempting SSH deployment...")
@@ -262,7 +267,7 @@ def main():
         
     # 2. FTP Deployment
     server = (os.environ.get('HOSTINGER_FTP_SERVER') or os.environ.get('FTP_SERVER') or 'ftp.fluidpalette.com').strip()
-    user = (os.environ.get('HOSTINGER_FTP_USERNAME') or os.environ.get('FTP_USERNAME') or os.environ.get('FTP_USER') or 'u352534340.viscodelogin').strip()
+    user = (os.environ.get('HOSTINGER_FTP_USERNAME') or os.environ.get('FTP_USERNAME') or os.environ.get('FTP_USER') or '').strip()
     password = (
         os.environ.get('HOSTINGER_FTP_PASSWORD') or
         os.environ.get('viscodelogin') or
