@@ -82,19 +82,19 @@ def deploy_via_ssh(host, port, user, password, local_dir, target_subdomains=['ch
         "-o", "LogLevel=ERROR",
         "-P", str(port),
     ]
-    remote_archive = "charts-dist-upload.tar.gz"
+    remote_archive = "charts-dist-upload.zip"
 
     try:
         # Build the archive once locally and upload it as a single file. Piping
         # a live `tar -czf - | ssh ... tar -xzf -` makes the remote host fork a
         # gzip child process to decompress; on a shared-hosting account that's
         # already near its process/resource ceiling that fork can fail with
-        # "Cannot fork: Resource temporarily unavailable". Extracting via
-        # Python's tarfile module below decompresses in-process (zlib) instead,
-        # so it needs no extra remote fork.
+        # "Cannot fork: Resource temporarily unavailable". `unzip` decompresses
+        # in-process (no forked child), and unlike a specific `python3` binary
+        # path, it's essentially guaranteed to exist on any web host.
         archive_path = os.path.join(tempfile.gettempdir(), remote_archive)
         log("📦 Building local archive...")
-        build = subprocess.run(["tar", "-czf", archive_path, "-C", local_dir, "."], capture_output=True, text=True)
+        build = subprocess.run(["zip", "-r", "-q", archive_path, "."], cwd=local_dir, capture_output=True, text=True)
         if build.returncode != 0:
             log(f"❌ Local archive build failed: {build.stderr}")
             return False
@@ -118,12 +118,10 @@ def deploy_via_ssh(host, port, user, password, local_dir, target_subdomains=['ch
 
             log(f"📤 Extracting archive into ~/{target_dir} ...")
             start_time = time.time()
-            extract_py = (
-                "import tarfile; "
-                f"tarfile.open('{remote_archive}', 'r:gz').extractall('{target_dir}')"
-            )
-            result = subprocess.run(ssh_base + [f"cd ~ && python3 -c \"{extract_py}\""], env=env, capture_output=True, text=True)
-            if result.returncode != 0:
+            result = subprocess.run(ssh_base + [f"unzip -o -q ~/{remote_archive} -d ~/{target_dir}"], env=env, capture_output=True, text=True)
+            # unzip exit code 1 means "one or more warnings, but it completed" —
+            # only treat >1 as a real failure.
+            if result.returncode > 1:
                 log(f"❌ Remote extraction to {sub} failed: {result.stderr}")
                 return False
 
