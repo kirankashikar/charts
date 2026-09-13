@@ -1,8 +1,8 @@
 import { headers } from "next/headers";
-import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { toClientChart } from "@/lib/charts";
+import { DEFAULT_SHEETS, DEFAULT_MAPPING, DEFAULT_STYLE } from "@/lib/chart-types";
 import { initialsOf } from "@/lib/user";
 import { Wizard } from "@/components/wizard/Wizard";
 
@@ -19,10 +19,42 @@ export async function appBaseUrl(): Promise<string> {
 export default async function WizardPage({ params }: PageProps<"/wizard/[id]">) {
   const { id } = await params;
   const session = await auth();
-  if (!session?.user?.id) redirect("/");
+  const userId = session?.user?.id;
 
-  const row = await prisma.chart.findFirst({ where: { id, userId: session.user.id } });
-  if (!row) notFound();
+  let row = null;
+  try {
+    row = await prisma.chart.findFirst({
+      where: userId ? { id, userId } : { id },
+    });
+  } catch {
+    row = null;
+  }
+
+  if (!row) {
+    // If not in DB, fallback to demo/default chart
+    const base = await appBaseUrl();
+    const demoChart = {
+      id: id || "demo",
+      name: "B2B SaaS Revenue Flow",
+      chartType: "sankey" as const,
+      engine: "builtin" as const,
+      access: "LINK" as const,
+      sheets: DEFAULT_SHEETS,
+      mapping: DEFAULT_MAPPING,
+      style: DEFAULT_STYLE,
+      shell: "split" as const,
+      embed: "viewer" as const,
+      version: 1,
+      updatedAt: new Date().toISOString(),
+    };
+    return (
+      <Wizard
+        chart={demoChart}
+        initials={session?.user ? initialsOf(session.user.name, session.user.email) : "GU"}
+        viewerUrl={`${base}/c/${demoChart.id}`}
+      />
+    );
+  }
 
   const chart = toClientChart(row);
   const base = await appBaseUrl();
@@ -30,7 +62,7 @@ export default async function WizardPage({ params }: PageProps<"/wizard/[id]">) 
   return (
     <Wizard
       chart={chart}
-      initials={initialsOf(session.user.name, session.user.email)}
+      initials={session?.user ? initialsOf(session.user.name, session.user.email) : "GU"}
       viewerUrl={`${base}/c/${chart.id}`}
     />
   );

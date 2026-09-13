@@ -8,11 +8,28 @@ import { asJson } from "./json";
 
 export async function createChartAction() {
   const session = await auth();
-  if (!session?.user?.id) redirect("/");
+  let userId = session?.user?.id;
+
+  if (!userId) {
+    try {
+      const guestUser = await prisma.user.upsert({
+        where: { email: "guest@fluidpalette.com" },
+        update: {},
+        create: {
+          email: "guest@fluidpalette.com",
+          name: "Guest Presenter",
+        },
+      });
+      userId = guestUser.id;
+    } catch {
+      // In case database is not reachable, redirect to default wizard
+      redirect("/wizard/demo");
+    }
+  }
 
   const chart = await prisma.chart.create({
     data: {
-      userId: session.user.id,
+      userId,
       name: DEFAULT_STYLE.title,
       chartType: "sankey",
       sheets: asJson(DEFAULT_SHEETS),

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { TopBar } from "@/components/TopBar";
@@ -14,12 +13,24 @@ export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
   const session = await auth();
-  if (!session?.user?.id) redirect("/");
+  const userId = session?.user?.id;
 
-  const charts = await prisma.chart.findMany({
-    where: { userId: session.user.id },
-    orderBy: { updatedAt: "desc" },
-  });
+  let charts: Array<Awaited<ReturnType<typeof prisma.chart.findMany>>[number]> = [];
+  try {
+    if (userId) {
+      charts = await prisma.chart.findMany({
+        where: { userId },
+        orderBy: { updatedAt: "desc" },
+      });
+    } else {
+      charts = await prisma.chart.findMany({
+        take: 6,
+        orderBy: { updatedAt: "desc" },
+      });
+    }
+  } catch {
+    charts = [];
+  }
 
   return (
     <div
@@ -30,7 +41,7 @@ export default async function Dashboard() {
         fontFamily: "var(--font-body)",
       }}
     >
-      <TopBar title="Workspace" initials={initialsOf(session.user.name, session.user.email)} />
+      <TopBar title="Workspace" initials={session?.user ? initialsOf(session.user.name, session.user.email) : "GU"} />
 
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "40px 24px 80px" }}>
         <div

@@ -87,6 +87,29 @@ export default async function Home() {
             <form
               action={async () => {
                 "use server";
+                redirect("/dashboard");
+              }}
+              style={{ marginBottom: 12 }}
+            >
+              <button
+                type="submit"
+                className="btn btn-primary btn-block"
+                style={{
+                  justifyContent: "center",
+                  gap: 10,
+                  padding: "14px 16px",
+                  fontSize: 15,
+                  fontWeight: 800,
+                  width: "100%",
+                }}
+              >
+                Launch Chart Studio (Instant Access)
+              </button>
+            </form>
+
+            <form
+              action={async () => {
+                "use server";
                 await signIn("google", { redirectTo: "/dashboard" });
               }}
             >
@@ -100,6 +123,7 @@ export default async function Home() {
                   borderWidth: 2,
                   borderColor: "#201e1d",
                   fontSize: 15,
+                  width: "100%",
                 }}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
@@ -112,7 +136,7 @@ export default async function Home() {
               </button>
             </form>
             <p style={{ fontSize: 12, color: "#7d7979", margin: "20px 0 0" }}>
-              Scopes requested: name, email, profile picture. Sheet data is written to your own row-scoped tables.
+              Instant guest mode requires no setup. Sign in with Google to save charts to your cloud workspace.
             </p>
           </div>
         </div>
