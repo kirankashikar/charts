@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { TopBar } from "@/components/TopBar";
+import { DeleteChartButton } from "@/components/DeleteChartButton";
 import { getGuestUserId, initialsOf } from "@/lib/user";
 import { createChartAction } from "@/lib/actions";
 import { toClientChart, toSnapshot } from "@/lib/charts";
@@ -93,23 +94,24 @@ export default async function Dashboard() {
               const colors = paletteColors(chart.style);
               const published = chart.version > 0;
               return (
-                <Link
-                  key={chart.id}
-                  href={`/wizard/${chart.id}`}
-                  className="dash-card"
-                  style={{
-                    borderRight: "1px solid var(--color-divider)",
-                    borderBottom: "1px solid var(--color-divider)",
-                    padding: 18,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 12,
-                    cursor: "pointer",
-                    background: "var(--color-bg)",
-                    color: "inherit",
-                    textDecoration: "none",
-                  }}
-                >
+                <div key={chart.id} style={{ position: "relative" }}>
+                  <DeleteChartButton id={chart.id} name={chart.name} />
+                  <Link
+                    href={`/wizard/${chart.id}`}
+                    className="dash-card"
+                    style={{
+                      borderRight: "1px solid var(--color-divider)",
+                      borderBottom: "1px solid var(--color-divider)",
+                      padding: 18,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 12,
+                      cursor: "pointer",
+                      background: "var(--color-bg)",
+                      color: "inherit",
+                      textDecoration: "none",
+                    }}
+                  >
                   <div
                     style={{
                       height: 104,
@@ -149,7 +151,8 @@ export default async function Dashboard() {
                       {published ? "Published" : "Draft"}
                     </span>
                   </div>
-                </Link>
+                  </Link>
+                </div>
               );
             })}
           </div>

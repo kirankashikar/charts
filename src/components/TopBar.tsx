@@ -8,10 +8,14 @@ export function TopBar({
   title,
   initials,
   shellToggle,
+  onTitleChange,
 }: {
   title: string;
   initials: string;
   shellToggle?: ReactNode;
+  /** When given, the title becomes an inline-editable field (the wizard
+   *  needs this so naming a chart doesn't require visiting the Style step). */
+  onTitleChange?: (next: string) => void;
 }) {
   return (
     <div
@@ -44,19 +48,39 @@ export function TopBar({
         Graphos
       </Link>
       <div style={{ width: 2, height: 24, background: "var(--color-divider)" }} />
-      <div
-        style={{
-          fontSize: 13,
-          color: "#605d5d",
-          flex: "1 1 120px",
-          minWidth: 0,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {title}
-      </div>
+      {onTitleChange ? (
+        <input
+          value={title}
+          onChange={(e) => onTitleChange(e.target.value)}
+          placeholder="Name this chart"
+          style={{
+            fontSize: 13,
+            color: "#201e1d",
+            flex: "1 1 120px",
+            minWidth: 0,
+            background: "transparent",
+            border: "1px solid transparent",
+            padding: "4px 6px",
+            fontFamily: "inherit",
+          }}
+          onFocus={(e) => (e.target.style.border = "1px solid var(--color-divider)")}
+          onBlur={(e) => (e.target.style.border = "1px solid transparent")}
+        />
+      ) : (
+        <div
+          style={{
+            fontSize: 13,
+            color: "#605d5d",
+            flex: "1 1 120px",
+            minWidth: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {title}
+        </div>
+      )}
       {shellToggle}
       <Link className="btn btn-secondary" href="/dashboard">
         My charts

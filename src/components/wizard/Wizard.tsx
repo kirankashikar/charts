@@ -17,6 +17,7 @@ import {
 import { chartDef, SheetKey, STEPS } from "@/lib/chart-types";
 import type { ClientChart } from "@/lib/charts";
 import { toSnapshot } from "@/lib/charts";
+import { discardChartAction } from "@/lib/actions";
 import { DataStep } from "./DataStep";
 import { ChartStep } from "./ChartStep";
 import { MapStep } from "./MapStep";
@@ -43,9 +44,25 @@ export function Wizard({
   );
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [publishing, setPublishing] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
   const [refreshNote, setRefreshNote] = useState<string | null>(null);
 
   const update = useCallback((patch: Partial<ClientChart>) => setChart((c) => ({ ...c, ...patch })), []);
+
+  // A brand-new chart is created the instant "+ New chart" is clicked, so
+  // there's already a row to build the wizard around — but nothing is worth
+  // persisting further edits to until it has an actual name. "Untitled
+  // chart" is what createDefaultChart seeds it with, not a name someone
+  // chose.
+  const isNamed = chart.style.title.trim() !== "" && chart.style.title.trim().toLowerCase() !== "untitled chart";
+
+  const discardDraft = async () => {
+    if (!window.confirm(isNamed ? `Discard "${chart.style.title}"? This can't be undone.` : "Discard this draft?")) {
+      return;
+    }
+    setDiscarding(true);
+    await discardChartAction(chart.id);
+  };
 
   // Everything the server persists — version and updatedAt are excluded so
   // writing the server's response back doesn't retrigger a save.
@@ -115,14 +132,17 @@ export function Wizard({
 
   useEffect(() => {
     if (payload === savedPayload.current) return;
-    setSaveState("saving");
-    setRefreshNote(null);
+    if (!isNamed) return;
     let cancelled = false;
     // A transient failure (a blip in connectivity, a cold serverless
     // function) shouldn't strand the user on "could not save" until their
     // next keystroke happens to retry it — back off and retry a few times
     // before actually giving up.
     const attemptSave = async (attempt: number): Promise<void> => {
+      if (attempt === 0) {
+        setSaveState("saving");
+        setRefreshNote(null);
+      }
       try {
         const res = await fetch(`/api/charts/${chart.id}`, {
           method: "PATCH",
@@ -150,9 +170,13 @@ export function Wizard({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [payload, chart.id]);
+  }, [payload, chart.id, isNamed]);
 
   const publish = async () => {
+    if (!isNamed) {
+      window.alert("Name this chart before publishing it — click the title at the top to set one.");
+      return;
+    }
     setPublishing(true);
     try {
       await fetch(`/api/charts/${chart.id}`, {
@@ -193,8 +217,9 @@ export function Wizard({
               ? `${geoRegionRows(chart.sheets, chart.mapping).length} regions`
               : `${flowLinks(chart.sheets, chart.mapping).length} links`;
 
-  const syncNote =
-    saveState === "saving"
+  const syncNote = !isNamed
+    ? "not saved — name this chart to keep it"
+    : saveState === "saving"
       ? "saving…"
       : saveState === "error"
         ? "could not save"
@@ -235,7 +260,8 @@ export function Wizard({
       }}
     >
       <TopBar
-        title={chart.style.title}
+        title={isNamed ? chart.style.title : ""}
+        onTitleChange={(next) => update({ style: { ...chart.style, title: next } })}
         initials={initials}
         shellToggle={
           <div style={{ display: "flex", gap: 2, border: "1px solid var(--color-divider)" }}>
@@ -404,6 +430,23 @@ export function Wizard({
               </button>
               <button className="btn btn-primary" onClick={onNext} disabled={step === 0 && !chart.chartType}>
                 {step === 0 && !chart.chartType ? "Pick a chart type" : NEXT_LABELS[step]}
+              </button>
+              <button
+                type="button"
+                onClick={discardDraft}
+                disabled={discarding}
+                title={isNamed ? "Delete this chart" : "Discard this draft — nothing has been saved yet"}
+                style={{
+                  background: "none",
+                  border: 0,
+                  color: "#9b9797",
+                  cursor: discarding ? "default" : "pointer",
+                  fontSize: 12,
+                  padding: "4px 6px",
+                  textDecoration: "underline",
+                }}
+              >
+                {discarding ? "Discarding…" : isNamed ? "Delete chart" : "Discard draft"}
               </button>
               <span style={{ fontSize: 12, color: "#7d7979", marginLeft: "auto" }}>{stepMeta}</span>
             </div>
