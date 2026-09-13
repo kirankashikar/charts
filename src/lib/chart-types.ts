@@ -161,8 +161,8 @@ export const PALETTES: Record<PaletteId, { name: string; note: string; colors: s
 };
 
 export const STEPS = [
-  { label: "Data", hint: "Enter or paste rows" },
   { label: "Chart", hint: "Pick a type" },
+  { label: "Data", hint: "Enter or paste rows" },
   { label: "Map", hint: "Columns → encodings" },
   { label: "Style", hint: "Title, palette, labels" },
   { label: "Publish", hint: "Link for the deck" },

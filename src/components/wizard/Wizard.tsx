@@ -15,7 +15,7 @@ import { StyleStep } from "./StyleStep";
 import { PublishStep } from "./PublishStep";
 import { segBtn } from "./controls";
 
-const NEXT_LABELS = ["Choose a chart →", "Map the columns →", "Style it →", "Publish →", "Copy link & finish"];
+const NEXT_LABELS = ["Add your data →", "Map the columns →", "Style it →", "Publish →", "Copy link & finish"];
 
 export function Wizard({
   chart: initial,
@@ -120,8 +120,8 @@ export function Wizard({
           : "synced with sheet";
 
   const stepMeta = [
-    "Step 1 of 5 · autosaved to your workspace",
-    "Step 2 of 5 · 12 types, 2 need extra columns",
+    "Step 1 of 5 · 12 types, 2 need extra columns",
+    "Step 2 of 5 · autosaved to your workspace",
     "Step 3 of 5 · encodings validate as you pick",
     "Step 4 of 5 · applies to preview and viewer",
     `Step 5 of 5 · publishing writes version v${chart.version + 1}`,
@@ -286,10 +286,10 @@ export function Wizard({
                   }
             }
           >
-            {step === 0 && (
+            {step === 0 && <ChartStep chart={chart} update={update} setActiveSheet={setActiveSheet} />}
+            {step === 1 && (
               <DataStep chart={chart} update={update} activeSheet={activeSheet} setActiveSheet={setActiveSheet} />
             )}
-            {step === 1 && <ChartStep chart={chart} update={update} setActiveSheet={setActiveSheet} />}
             {step === 2 && <MapStep chart={chart} update={update} />}
             {step === 3 && <StyleStep chart={chart} update={update} />}
             {step === 4 && (
@@ -424,7 +424,7 @@ export function Wizard({
                         ? `A ${def.name.toLowerCase()} needs latitude and longitude, or a place column we can geocode. Add a column and set its type to Geo.`
                         : "A violin plot draws a distribution, so it needs one row per observation rather than the aggregated totals in this sheet."}
                     </div>
-                    <button className="btn btn-primary" onClick={() => setStep(0)}>
+                    <button className="btn btn-primary" onClick={() => setStep(1)}>
                       Add the columns
                     </button>
                   </div>
